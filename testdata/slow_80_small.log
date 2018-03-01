@@ -1,0 +1,481 @@
+/home/karl/mysql/my-5.7/bin/mysqld, Version: 5.7.20-log (MySQL Community Server (GPL)). started with:
+Tcp port: 12345  Unix socket: /tmp/12345/mysql_sandbox12345.sock
+Time                 Id Command    Argument
+# Time: 2018-02-05T02:46:43.035578Z
+# User@Host: msandbox[msandbox] @ localhost []  Id:     5
+# Query_time: 0.000236  Lock_time: 0.000000 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798803;
+CREATE TABLE `columns_priv` (
+  `Host` char(60) COLLATE utf8_bin NOT NULL DEFAULT '',
+  `Db` char(64) COLLATE utf8_bin NOT NULL DEFAULT '',
+  `User` char(32) COLLATE utf8_bin NOT NULL DEFAULT '',
+  `Table_name` char(64) COLLATE utf8_bin NOT NULL DEFAULT '',
+  `Column_name` char(64) COLLATE utf8_bin NOT NULL DEFAULT '',
+  `Timestamp` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `Column_priv` set('Select','Insert','Update','References') CHARACTER SET utf8 NOT NULL DEFAULT '',
+  PRIMARY KEY (`Host`,`Db`,`User`,`Table_name`,`Column_name`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_bin COMMENT='Column privileges';
+# Time: 2018-02-05T02:46:43.035637Z
+# User@Host: msandbox[msandbox] @ localhost []  Id:     5
+# Query_time: 0.000027  Lock_time: 0.000000 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798803;
+/*!40101 SET character_set_client = @saved_cs_client */;
+# Time: 2018-02-05T02:46:43.035744Z
+# User@Host: msandbox[msandbox] @ localhost []  Id:     5
+# Query_time: 0.000095  Lock_time: 0.000000 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798803;
+DROP TABLE IF EXISTS `db`;
+# Time: 2018-02-05T02:46:47.266997Z
+# User@Host: msandbox[msandbox] @ localhost []  Id:    10
+# Query_time: 0.000151  Lock_time: 0.000142 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+LOCK TABLES `staff` WRITE;
+# Time: 2018-02-05T02:46:47.267077Z
+# User@Host: msandbox[msandbox] @ localhost []  Id:    10
+# Query_time: 0.000047  Lock_time: 0.000000 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+ALTER TABLE `staff` DISABLE KEYS;
+# Time: 2018-02-05T02:46:47.269149Z
+# User@Host: msandbox[msandbox] @ localhost []  Id:    10
+# Query_time: 0.001498  Lock_time: 0.000000 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+INSERT INTO `staff` VALUES (1,'Mike','Hillyer',3,NULL);
+# Time: 2018-02-05T02:46:47.269273Z
+# User@Host: msandbox[msandbox] @ localhost []  Id:    10
+# Query_time: 0.000053  Lock_time: 0.000000 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+ALTER TABLE `staff` ENABLE KEYS;
+# Time: 2018-02-05T02:46:47.269314Z
+# User@Host: msandbox[msandbox] @ localhost []  Id:    10
+# Query_time: 0.000025  Lock_time: 0.000000 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+UNLOCK TABLES;
+# Time: 2018-02-05T02:46:47.270951Z
+# User@Host: msandbox[msandbox] @ localhost []  Id:    10
+# Query_time: 0.001606  Lock_time: 0.000000 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+CREATE TABLE `store` (
+  `store_id` tinyint(3) unsigned NOT NULL AUTO_INCREMENT,
+  `manager_staff_id` tinyint(3) unsigned NOT NULL,
+  `address_id` smallint(5) unsigned NOT NULL,
+  `last_update` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`store_id`),
+  UNIQUE KEY `idx_unique_manager` (`manager_staff_id`),
+  KEY `idx_fk_address_id` (`address_id`),
+  CONSTRAINT `fk_store_staff` FOREIGN KEY (`manager_staff_id`) REFERENCES `staff` (`staff_id`) ON UPDATE CASCADE,
+  CONSTRAINT `fk_store_address` FOREIGN KEY (`address_id`) REFERENCES `address` (`address_id`) ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8;
+# Time: 2018-02-05T02:46:47.271161Z
+# User@Host: msandbox[msandbox] @ localhost []  Id:    10
+# Query_time: 0.000176  Lock_time: 0.000166 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+LOCK TABLES `store` WRITE;
+# Time: 2018-02-05T02:46:47.271227Z
+# User@Host: msandbox[msandbox] @ localhost []  Id:    10
+# Query_time: 0.000047  Lock_time: 0.000000 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+ALTER TABLE `store` DISABLE KEYS;
+# Time: 2018-02-05T02:46:47.271380Z
+# User@Host: msandbox[msandbox] @ localhost []  Id:    10
+# Query_time: 0.000137  Lock_time: 0.000000 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+INSERT INTO `store` VALUES (1,1,1,'2006-02-15 11:57:12'),(2,2,2,'2006-02-15 11:57:12');
+# Time: 2018-02-05T02:46:47.271483Z
+# User@Host: msandbox[msandbox] @ localhost []  Id:    10
+# Query_time: 0.000053  Lock_time: 0.000000 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+ALTER TABLE `store` ENABLE KEYS;
+# Time: 2018-02-05T02:46:47.271898Z
+# User@Host: msandbox[msandbox] @ localhost []  Id:    10
+# Query_time: 0.000377  Lock_time: 0.000000 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+UNLOCK TABLES;
+# Time: 2018-02-05T02:46:47.272643Z
+# User@Host: msandbox[msandbox] @ localhost []  Id:    10
+# Query_time: 0.000710  Lock_time: 0.000000 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+CREATE VIEW customer_list
+AS
+SELECT cu.customer_id AS ID, CONCAT(cu.first_name, _utf8' ', cu.last_name) AS name, a.address AS address, a.postal_code AS `zip code`,
+	a.phone AS phone, city.city AS city, country.country AS country, IF(cu.active, _utf8'active',_utf8'') AS notes, cu.store_id AS SID
+FROM customer AS cu JOIN address AS a ON cu.address_id = a.address_id JOIN city ON a.city_id = city.city_id
+	JOIN country ON city.country_id = country.country_id;
+# Time: 2018-02-05T02:46:47.273366Z
+# User@Host: msandbox[msandbox] @ localhost []  Id:    10
+# Query_time: 0.000688  Lock_time: 0.000000 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+CREATE VIEW film_list
+AS
+SELECT film.film_id AS FID, film.title AS title, film.description AS description, category.name AS category, film.rental_rate AS price,
+	film.length AS length, film.rating AS rating, GROUP_CONCAT(CONCAT(actor.first_name, _utf8' ', actor.last_name) SEPARATOR ', ') AS actors
+FROM category LEFT JOIN film_category ON category.category_id = film_category.category_id LEFT JOIN film ON film_category.film_id = film.film_id
+        JOIN film_actor ON film.film_id = film_actor.film_id
+	JOIN actor ON film_actor.actor_id = actor.actor_id
+GROUP BY film.film_id, category.name;
+# Time: 2018-02-05T02:46:47.273786Z
+# User@Host: msandbox[msandbox] @ localhost []  Id:    10
+# Query_time: 0.000352  Lock_time: 0.000000 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+CREATE VIEW nicer_but_slower_film_list
+AS
+SELECT film.film_id AS FID, film.title AS title, film.description AS description, category.name AS category, film.rental_rate AS price,
+	film.length AS length, film.rating AS rating, GROUP_CONCAT(CONCAT(CONCAT(UCASE(SUBSTR(actor.first_name,1,1)),
+	LCASE(SUBSTR(actor.first_name,2,LENGTH(actor.first_name))),_utf8' ',CONCAT(UCASE(SUBSTR(actor.last_name,1,1)),
+	LCASE(SUBSTR(actor.last_name,2,LENGTH(actor.last_name)))))) SEPARATOR ', ') AS actors
+FROM category LEFT JOIN film_category ON category.category_id = film_category.category_id LEFT JOIN film ON film_category.film_id = film.film_id
+        JOIN film_actor ON film.film_id = film_actor.film_id
+	JOIN actor ON film_actor.actor_id = actor.actor_id
+GROUP BY film.film_id, category.name;
+# Time: 2018-02-05T02:46:47.274145Z
+# User@Host: msandbox[msandbox] @ localhost []  Id:    10
+# Query_time: 0.000324  Lock_time: 0.000000 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+CREATE VIEW staff_list
+AS
+SELECT s.staff_id AS ID, CONCAT(s.first_name, _utf8' ', s.last_name) AS name, a.address AS address, a.postal_code AS `zip code`, a.phone AS phone,
+	city.city AS city, country.country AS country, s.store_id AS SID
+FROM staff AS s JOIN address AS a ON s.address_id = a.address_id JOIN city ON a.city_id = city.city_id
+	JOIN country ON city.country_id = country.country_id;
+# Time: 2018-02-05T02:46:47.274921Z
+# User@Host: msandbox[msandbox] @ localhost []  Id:    10
+# Query_time: 0.000722  Lock_time: 0.000000 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+CREATE VIEW sales_by_store
+AS
+SELECT
+CONCAT(c.city, _utf8',', cy.country) AS store
+, CONCAT(m.first_name, _utf8' ', m.last_name) AS manager
+, SUM(p.amount) AS total_sales
+FROM payment AS p
+INNER JOIN rental AS r ON p.rental_id = r.rental_id
+INNER JOIN inventory AS i ON r.inventory_id = i.inventory_id
+INNER JOIN store AS s ON i.store_id = s.store_id
+INNER JOIN address AS a ON s.address_id = a.address_id
+INNER JOIN city AS c ON a.city_id = c.city_id
+INNER JOIN country AS cy ON c.country_id = cy.country_id
+INNER JOIN staff AS m ON s.manager_staff_id = m.staff_id
+GROUP BY s.store_id
+ORDER BY cy.country, c.city;
+# Time: 2018-02-05T02:46:47.275182Z
+# User@Host: msandbox[msandbox] @ localhost []  Id:    10
+# Query_time: 0.000214  Lock_time: 0.000000 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+CREATE VIEW sales_by_film_category
+AS
+SELECT
+c.name AS category
+, SUM(p.amount) AS total_sales
+FROM payment AS p
+INNER JOIN rental AS r ON p.rental_id = r.rental_id
+INNER JOIN inventory AS i ON r.inventory_id = i.inventory_id
+INNER JOIN film AS f ON i.film_id = f.film_id
+INNER JOIN film_category AS fc ON f.film_id = fc.film_id
+INNER JOIN category AS c ON fc.category_id = c.category_id
+GROUP BY c.name
+ORDER BY total_sales DESC;
+# Time: 2018-02-05T02:46:47.275551Z
+# User@Host: msandbox[msandbox] @ localhost []  Id:    10
+# Query_time: 0.000320  Lock_time: 0.000000 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+CREATE DEFINER=CURRENT_USER SQL SECURITY INVOKER VIEW actor_info
+AS
+SELECT
+a.actor_id,
+a.first_name,
+a.last_name,
+GROUP_CONCAT(DISTINCT CONCAT(c.name, ': ',
+		(SELECT GROUP_CONCAT(f.title ORDER BY f.title SEPARATOR ', ')
+                    FROM sakila.film f
+                    INNER JOIN sakila.film_category fc
+                      ON f.film_id = fc.film_id
+                    INNER JOIN sakila.film_actor fa
+                      ON f.film_id = fa.film_id
+                    WHERE fc.category_id = c.category_id
+                    AND fa.actor_id = a.actor_id
+                 )
+             )
+             ORDER BY c.name SEPARATOR '; ')
+AS film_info
+FROM sakila.actor a
+LEFT JOIN sakila.film_actor fa
+  ON a.actor_id = fa.actor_id
+LEFT JOIN sakila.film_category fc
+  ON fa.film_id = fc.film_id
+LEFT JOIN sakila.category c
+  ON fc.category_id = c.category_id
+GROUP BY a.actor_id, a.first_name, a.last_name;
+# Time: 2018-02-05T02:46:47.275583Z
+# User@Host: msandbox[msandbox] @ localhost []  Id:    10
+# Query_time: 0.000014  Lock_time: 0.000000 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+COMMIT;
+# Time: 2018-02-05T02:46:47.276034Z
+# User@Host: msandbox[msandbox] @ localhost []  Id:    10
+# Query_time: 0.000416  Lock_time: 0.000000 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+FLUSH TABLES;
+# Time: 2018-02-05T02:46:47.276070Z
+# User@Host: msandbox[msandbox] @ localhost []  Id:    10
+# Query_time: 0.000005  Lock_time: 0.000000 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+# administrator command: Quit;
+# Time: 2018-02-05T02:46:47.278863Z
+# User@Host: msandbox[msandbox] @ localhost []  Id:    11
+# Query_time: 0.000050  Lock_time: 0.000000 Rows_sent: 1  Rows_examined: 0
+SET timestamp=1517798807;
+select @@version_comment limit 1;
+# Time: 2018-02-05T02:46:47.296247Z
+# User@Host: msandbox[msandbox] @ localhost []  Id:    11
+# Query_time: 0.017352  Lock_time: 0.016992 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+ANALYZE TABLE actor, address, category, city, country, customer, film, film_actor, film_category, film_text, inventory, language, payment, rental, staff, store;
+# Time: 2018-02-05T02:46:47.296332Z
+# User@Host: msandbox[msandbox] @ localhost []  Id:    11
+# Query_time: 0.000008  Lock_time: 0.000000 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+# administrator command: Quit;
+# Time: 2018-02-05T02:46:47.339042Z
+# User@Host: msandbox[msandbox] @ localhost [127.0.0.1]  Id:    12
+# Query_time: 0.000053  Lock_time: 0.000000 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+set autocommit=0;
+# Time: 2018-02-05T02:46:47.339350Z
+# User@Host: msandbox[msandbox] @ localhost [127.0.0.1]  Id:    12
+# Query_time: 0.000188  Lock_time: 0.000133 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+UPDATE mysql.proc SET created='2012-06-05 00:00:00', modified='2012-06-05 00:00:00';
+# Time: 2018-02-05T02:46:47.339613Z
+# User@Host: msandbox[msandbox] @ localhost [127.0.0.1]  Id:    12
+# Query_time: 0.000172  Lock_time: 0.000046 Rows_sent: 31  Rows_examined: 31
+SET timestamp=1517798807;
+SHOW TABLES FROM mysql;
+# Time: 2018-02-05T02:46:47.339852Z
+# User@Host: msandbox[msandbox] @ localhost [127.0.0.1]  Id:    12
+# Query_time: 0.000060  Lock_time: 0.000000 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+CREATE DATABASE IF NOT EXISTS percona_test;
+# Time: 2018-02-05T02:46:47.340019Z
+# User@Host: msandbox[msandbox] @ localhost [127.0.0.1]  Id:    12
+# Query_time: 0.000089  Lock_time: 0.000000 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+DROP TABLE IF EXISTS percona_test.checksums;
+# Time: 2018-02-05T02:46:47.340698Z
+# User@Host: msandbox[msandbox] @ localhost [127.0.0.1]  Id:    12
+# Query_time: 0.000603  Lock_time: 0.000000 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+CREATE TABLE percona_test.checksums(
+          db_tbl varchar(128) not null primary key,
+          checksum int unsigned not null);
+# Time: 2018-02-05T02:46:47.363917Z
+# User@Host: msandbox[msandbox] @ localhost [127.0.0.1]  Id:    12
+# Query_time: 0.023112  Lock_time: 0.023065 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+CHECKSUM TABLES mysql.columns_priv, mysql.db, mysql.engine_cost, mysql.event, mysql.func, mysql.gtid_executed, mysql.help_category, mysql.help_keyword, mysql.help_relation, mysql.help_topic, mysql.ndb_binlog_index, mysql.plugin, mysql.proc, mysql.procs_priv, mysql.proxies_priv, mysql.server_cost, mysql.servers, mysql.tables_priv, mysql.time_zone, mysql.time_zone_leap_second, mysql.time_zone_name, mysql.time_zone_transition, mysql.time_zone_transition_type, mysql.user, sakila.actor, sakila.address, sakila.category, sakila.city, sakila.country, sakila.customer, sakila.film, sakila.film_actor, sakila.film_category, sakila.film_text, sakila.inventory, sakila.language, sakila.payment, sakila.rental, sakila.staff, sakila.store;
+# Time: 2018-02-05T02:46:47.364402Z
+# User@Host: msandbox[msandbox] @ localhost [127.0.0.1]  Id:    12
+# Query_time: 0.000230  Lock_time: 0.000168 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+INSERT INTO percona_test.checksums(db_tbl, checksum)
+   VALUES('mysql.engine_cost', 537960405);
+# Time: 2018-02-05T02:46:47.364574Z
+# User@Host: msandbox[msandbox] @ localhost [127.0.0.1]  Id:    12
+# Query_time: 0.000079  Lock_time: 0.000035 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+INSERT INTO percona_test.checksums(db_tbl, checksum)
+   VALUES('mysql.help_category', 2621154011);
+# Time: 2018-02-05T02:46:47.364677Z
+# User@Host: msandbox[msandbox] @ localhost [127.0.0.1]  Id:    12
+# Query_time: 0.000063  Lock_time: 0.000032 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+INSERT INTO percona_test.checksums(db_tbl, checksum)
+   VALUES('mysql.help_keyword', 2726331373);
+# Time: 2018-02-05T02:46:47.364760Z
+# User@Host: msandbox[msandbox] @ localhost [127.0.0.1]  Id:    12
+# Query_time: 0.000053  Lock_time: 0.000025 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+INSERT INTO percona_test.checksums(db_tbl, checksum)
+   VALUES('mysql.help_relation', 3304891083);
+# Time: 2018-02-05T02:46:47.364834Z
+# User@Host: msandbox[msandbox] @ localhost [127.0.0.1]  Id:    12
+# Query_time: 0.000048  Lock_time: 0.000023 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+INSERT INTO percona_test.checksums(db_tbl, checksum)
+   VALUES('mysql.help_topic', 1178478843);
+# Time: 2018-02-05T02:46:47.364908Z
+# User@Host: msandbox[msandbox] @ localhost [127.0.0.1]  Id:    12
+# Query_time: 0.000047  Lock_time: 0.000021 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+INSERT INTO percona_test.checksums(db_tbl, checksum)
+   VALUES('mysql.server_cost', 3229560508);
+# Time: 2018-02-05T02:46:47.364980Z
+# User@Host: msandbox[msandbox] @ localhost [127.0.0.1]  Id:    12
+# Query_time: 0.000046  Lock_time: 0.000021 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+INSERT INTO percona_test.checksums(db_tbl, checksum)
+   VALUES('mysql.user', 3100833990);
+# Time: 2018-02-05T02:46:47.365052Z
+# User@Host: msandbox[msandbox] @ localhost [127.0.0.1]  Id:    12
+# Query_time: 0.000047  Lock_time: 0.000021 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+INSERT INTO percona_test.checksums(db_tbl, checksum)
+   VALUES('sakila.actor', 188518946);
+# Time: 2018-02-05T02:46:47.365120Z
+# User@Host: msandbox[msandbox] @ localhost [127.0.0.1]  Id:    12
+# Query_time: 0.000046  Lock_time: 0.000021 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+INSERT INTO percona_test.checksums(db_tbl, checksum)
+   VALUES('sakila.address', 1939802661);
+# Time: 2018-02-05T02:46:47.365189Z
+# User@Host: msandbox[msandbox] @ localhost [127.0.0.1]  Id:    12
+# Query_time: 0.000046  Lock_time: 0.000021 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+INSERT INTO percona_test.checksums(db_tbl, checksum)
+   VALUES('sakila.category', 1662287106);
+# Time: 2018-02-05T02:46:47.365261Z
+# User@Host: msandbox[msandbox] @ localhost [127.0.0.1]  Id:    12
+# Query_time: 0.000046  Lock_time: 0.000021 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+INSERT INTO percona_test.checksums(db_tbl, checksum)
+   VALUES('sakila.city', 3197559470);
+# Time: 2018-02-05T02:46:47.365329Z
+# User@Host: msandbox[msandbox] @ localhost [127.0.0.1]  Id:    12
+# Query_time: 0.000045  Lock_time: 0.000020 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+INSERT INTO percona_test.checksums(db_tbl, checksum)
+   VALUES('sakila.country', 321994950);
+# Time: 2018-02-05T02:46:47.365397Z
+# User@Host: msandbox[msandbox] @ localhost [127.0.0.1]  Id:    12
+# Query_time: 0.000046  Lock_time: 0.000021 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+INSERT INTO percona_test.checksums(db_tbl, checksum)
+   VALUES('sakila.customer', 3588889237);
+# Time: 2018-02-05T02:46:47.365468Z
+# User@Host: msandbox[msandbox] @ localhost [127.0.0.1]  Id:    12
+# Query_time: 0.000049  Lock_time: 0.000024 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+INSERT INTO percona_test.checksums(db_tbl, checksum)
+   VALUES('sakila.film', 3383030362);
+# Time: 2018-02-05T02:46:47.365537Z
+# User@Host: msandbox[msandbox] @ localhost [127.0.0.1]  Id:    12
+# Query_time: 0.000046  Lock_time: 0.000021 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+INSERT INTO percona_test.checksums(db_tbl, checksum)
+   VALUES('sakila.film_actor', 3046967589);
+# Time: 2018-02-05T02:46:47.365605Z
+# User@Host: msandbox[msandbox] @ localhost [127.0.0.1]  Id:    12
+# Query_time: 0.000046  Lock_time: 0.000021 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+INSERT INTO percona_test.checksums(db_tbl, checksum)
+   VALUES('sakila.film_category', 2595914572);
+# Time: 2018-02-05T02:46:47.365673Z
+# User@Host: msandbox[msandbox] @ localhost [127.0.0.1]  Id:    12
+# Query_time: 0.000046  Lock_time: 0.000021 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+INSERT INTO percona_test.checksums(db_tbl, checksum)
+   VALUES('sakila.film_text', 3517545183);
+# Time: 2018-02-05T02:46:47.365776Z
+# User@Host: msandbox[msandbox] @ localhost [127.0.0.1]  Id:    12
+# Query_time: 0.000082  Lock_time: 0.000055 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+INSERT INTO percona_test.checksums(db_tbl, checksum)
+   VALUES('sakila.inventory', 1667122127);
+# Time: 2018-02-05T02:46:47.365847Z
+# User@Host: msandbox[msandbox] @ localhost [127.0.0.1]  Id:    12
+# Query_time: 0.000047  Lock_time: 0.000021 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+INSERT INTO percona_test.checksums(db_tbl, checksum)
+   VALUES('sakila.language', 4248231622);
+# Time: 2018-02-05T02:46:47.365917Z
+# User@Host: msandbox[msandbox] @ localhost [127.0.0.1]  Id:    12
+# Query_time: 0.000047  Lock_time: 0.000021 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+INSERT INTO percona_test.checksums(db_tbl, checksum)
+   VALUES('sakila.payment', 3932143932);
+# Time: 2018-02-05T02:46:47.365984Z
+# User@Host: msandbox[msandbox] @ localhost [127.0.0.1]  Id:    12
+# Query_time: 0.000045  Lock_time: 0.000021 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+INSERT INTO percona_test.checksums(db_tbl, checksum)
+   VALUES('sakila.rental', 3621860071);
+# Time: 2018-02-05T02:46:47.366053Z
+# User@Host: msandbox[msandbox] @ localhost [127.0.0.1]  Id:    12
+# Query_time: 0.000046  Lock_time: 0.000021 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+INSERT INTO percona_test.checksums(db_tbl, checksum)
+   VALUES('sakila.staff', 1306245126);
+# Time: 2018-02-05T02:46:47.366122Z
+# User@Host: msandbox[msandbox] @ localhost [127.0.0.1]  Id:    12
+# Query_time: 0.000047  Lock_time: 0.000022 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+INSERT INTO percona_test.checksums(db_tbl, checksum)
+   VALUES('sakila.store', 972255196);
+# Time: 2018-02-05T02:46:47.366214Z
+# User@Host: msandbox[msandbox] @ localhost [127.0.0.1]  Id:    12
+# Query_time: 0.000067  Lock_time: 0.000000 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+commit;
+# Time: 2018-02-05T02:46:47.366276Z
+# User@Host: msandbox[msandbox] @ localhost [127.0.0.1]  Id:    12
+# Query_time: 0.000019  Lock_time: 0.000000 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+rollback;
+# Time: 2018-02-05T02:46:47.366293Z
+# User@Host: msandbox[msandbox] @ localhost [127.0.0.1]  Id:    12
+# Query_time: 0.000004  Lock_time: 0.000000 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+# administrator command: Quit;
+# Time: 2018-02-05T02:46:47.407542Z
+# User@Host: msandbox[msandbox] @ localhost [127.0.0.1]  Id:    13
+# Query_time: 0.000648  Lock_time: 0.000000 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+CREATE TABLE IF NOT EXISTS percona_test.load_data (i int);
+# Time: 2018-02-05T02:46:47.408859Z
+# User@Host: msandbox[msandbox] @ localhost [127.0.0.1]  Id:    13
+# Query_time: 0.000273  Lock_time: 0.000159 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+LOAD DATA INFILE '/tmp/load_data_test.24252' INTO TABLE percona_test.load_data;
+# Time: 2018-02-05T02:46:47.409066Z
+# User@Host: msandbox[msandbox] @ localhost [127.0.0.1]  Id:    13
+# Query_time: 0.000088  Lock_time: 0.000037 Rows_sent: 1  Rows_examined: 1
+SET timestamp=1517798807;
+SELECT i FROM percona_test.load_data;
+# Time: 2018-02-05T02:46:47.409155Z
+# User@Host: msandbox[msandbox] @ localhost [127.0.0.1]  Id:    13
+# Query_time: 0.000007  Lock_time: 0.000000 Rows_sent: 1  Rows_examined: 1
+SET timestamp=1517798807;
+# administrator command: Quit;
+# Time: 2018-02-05T02:46:47.412871Z
+# User@Host: msandbox[msandbox] @ localhost []  Id:    14
+# Query_time: 0.000078  Lock_time: 0.000000 Rows_sent: 1  Rows_examined: 0
+SET timestamp=1517798807;
+select @@version_comment limit 1;
+# Time: 2018-02-05T02:46:47.413010Z
+# User@Host: msandbox[msandbox] @ localhost []  Id:    14
+# Query_time: 0.000047  Lock_time: 0.000000 Rows_sent: 1  Rows_examined: 0
+SET timestamp=1517798807;
+SELECT MD5(RAND());
+# Time: 2018-02-05T02:46:47.413118Z
+# User@Host: msandbox[msandbox] @ localhost []  Id:    14
+# Query_time: 0.000008  Lock_time: 0.000000 Rows_sent: 1  Rows_examined: 0
+SET timestamp=1517798807;
+# administrator command: Quit;
+# Time: 2018-02-05T02:46:47.416484Z
+# User@Host: msandbox[msandbox] @ localhost []  Id:    15
+# Query_time: 0.000050  Lock_time: 0.000000 Rows_sent: 1  Rows_examined: 0
+SET timestamp=1517798807;
+select @@version_comment limit 1;
+# Time: 2018-02-05T02:46:47.416539Z
+# User@Host: msandbox[msandbox] @ localhost []  Id:    15
+# Query_time: 0.000023  Lock_time: 0.000000 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+SET AUTOCOMMIT=1;
+# Time: 2018-02-05T02:46:47.416844Z
+# User@Host: msandbox[msandbox] @ localhost []  Id:    15
+# Query_time: 0.000283  Lock_time: 0.000176 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+REPLACE INTO percona_test.sentinela (id, ping) VALUES (1, '1dcc1893f940d4b0615d8cf540d52e8c');
+# Time: 2018-02-05T02:46:47.416862Z
+# User@Host: msandbox[msandbox] @ localhost []  Id:    15
+# Query_time: 0.000003  Lock_time: 0.000000 Rows_sent: 0  Rows_examined: 0
+SET timestamp=1517798807;
+# administrator command: Quit;

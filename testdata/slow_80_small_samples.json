@@ -1,0 +1,392 @@
+[
+  {
+    "Database": "",
+    "Query": "DROP TABLE IF EXISTS `db`",
+    "Fingerprint": "drop table if exists `db`",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  },
+  {
+    "Database": "",
+    "Query": "ALTER TABLE `staff` ENABLE KEYS",
+    "Fingerprint": "alter table `staff` enable keys",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  },
+  {
+    "Database": "",
+    "Query": "ALTER TABLE `store` ENABLE KEYS",
+    "Fingerprint": "alter table `store` enable keys",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  },
+  {
+    "Database": "",
+    "Query": "CREATE VIEW sales_by_store\nAS\nSELECT\nCONCAT(c.city, _utf8',', cy.country) AS store\n, CONCAT(m.first_name, _utf8' ', m.last_name) AS manager\n, SUM(p.amount) AS total_sales\nFROM payment AS p\nINNER JOIN rental AS r ON p.rental_id = r.rental_id\nINNER JOIN inventory AS i ON r.inventory_id = i.inventory_id\nINNER JOIN store AS s ON i.store_id = s.store_id\nINNER JOIN address AS a ON s.address_id = a.address_id\nINNER JOIN city AS c ON a.city_id = c.city_id\nINNER JOIN country AS cy ON c.country_id = cy.country_id\nINNER JOIN staff AS m ON s.manager_staff_id = m.staff_id\nGROUP BY s.store_id\nORDER BY cy.country, c.city",
+    "Fingerprint": "create view sales_by_store as select concat(c.city, _utf8?, cy.country) as store , concat(m.first_name, _utf8?, m.last_name) as manager , sum(p.amount) as total_sales from payment as p inner join rental as r on p.rental_id = r.rental_id inner join inventory as i on r.inventory_id = i.inventory_id inner join store as s on i.store_id = s.store_id inner join address as a on s.address_id = a.address_id inner join city as c on a.city_id = c.city_id inner join country as cy on c.country_id = cy.country_id inner join staff as m on s.manager_staff_id = m.staff_id group by s.store_id order by cy.country, c.city",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  },
+  {
+    "Database": "",
+    "Query": "CREATE DEFINER=CURRENT_USER SQL SECURITY INVOKER VIEW actor_info\nAS\nSELECT\na.actor_id,\na.first_name,\na.last_name,\nGROUP_CONCAT(DISTINCT CONCAT(c.name, ': ',\n\t\t(SELECT GROUP_CONCAT(f.title ORDER BY f.title SEPARATOR ', ')\n                    FROM sakila.film f\n                    INNER JOIN sakila.film_category fc\n                      ON f.film_id = fc.film_id\n                    INNER JOIN sakila.film_actor fa\n                      ON f.film_id = fa.film_id\n                    WHERE fc.category_id = c.category_id\n                    AND fa.actor_id = a.actor_id\n                 )\n             )\n             ORDER BY c.name SEPARATOR '; ')\nAS film_info\nFROM sakila.actor a\nLEFT JOIN sakila.film_actor fa\n  ON a.actor_id = fa.actor_id\nLEFT JOIN sakila.film_category fc\n  ON fa.film_id = fc.film_id\nLEFT JOIN sakila.category c\n  ON fc.category_id = c.category_id\nGROUP BY a.actor_id, a.first_name, a.last_name",
+    "Fingerprint": "create definer=current_user sql security invoker view actor_info as select a.actor_id, a.first_name, a.last_name, group_concat(distinct concat(c.name, ?, (select group_concat(f.title order by f.title separator ?) from sakila.film f inner join sakila.film_category fc on f.film_id = fc.film_id inner join sakila.film_actor fa on f.film_id = fa.film_id where fc.category_id = c.category_id and fa.actor_id = a.actor_id ) ) order by c.name separator ?) as film_info from sakila.actor a left join sakila.film_actor fa on a.actor_id = fa.actor_id left join sakila.film_category fc on fa.film_id = fc.film_id left join sakila.category c on fc.category_id = c.category_id group by a.actor_id, a.first_name, a.last_name",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  },
+  {
+    "Database": "",
+    "Query": "rollback",
+    "Fingerprint": "rollback",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  },
+  {
+    "Database": "",
+    "Query": "UNLOCK TABLES",
+    "Fingerprint": "unlock tables",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  },
+  {
+    "Database": "",
+    "Query": "CREATE VIEW film_list\nAS\nSELECT film.film_id AS FID, film.title AS title, film.description AS description, category.name AS category, film.rental_rate AS price,\n\tfilm.length AS length, film.rating AS rating, GROUP_CONCAT(CONCAT(actor.first_name, _utf8' ', actor.last_name) SEPARATOR ', ') AS actors\nFROM category LEFT JOIN film_category ON category.category_id = film_category.category_id LEFT JOIN film ON film_category.film_id = film.film_id\n        JOIN film_actor ON film.film_id = film_actor.film_id\n\tJOIN actor ON film_actor.actor_id = actor.actor_id\nGROUP BY film.film_id, category.name",
+    "Fingerprint": "create view film_list as select film.film_id as fid, film.title as title, film.description as description, category.name as category, film.rental_rate as price, film.length as length, film.rating as rating, group_concat(concat(actor.first_name, _utf8?, actor.last_name) separator ?) as actors from category left join film_category on category.category_id = film_category.category_id left join film on film_category.film_id = film.film_id join film_actor on film.film_id = film_actor.film_id join actor on film_actor.actor_id = actor.actor_id group by film.film_id, category.name",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  },
+  {
+    "Database": "",
+    "Query": "commit",
+    "Fingerprint": "commit",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  },
+  {
+    "Database": "",
+    "Query": "CREATE TABLE percona_test.checksums(\n          db_tbl varchar(128) not null primary key,\n          checksum int unsigned not null)",
+    "Fingerprint": "create table percona_test.checksums( db_tbl varchar(?) not null primary key, checksum int unsigned not null)",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  },
+  {
+    "Database": "",
+    "Query": "INSERT INTO `staff` VALUES (1,'Mike','Hillyer',3,NULL)",
+    "Fingerprint": "insert into `staff` values(?+)",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  },
+  {
+    "Database": "",
+    "Query": "CREATE VIEW nicer_but_slower_film_list\nAS\nSELECT film.film_id AS FID, film.title AS title, film.description AS description, category.name AS category, film.rental_rate AS price,\n\tfilm.length AS length, film.rating AS rating, GROUP_CONCAT(CONCAT(CONCAT(UCASE(SUBSTR(actor.first_name,1,1)),\n\tLCASE(SUBSTR(actor.first_name,2,LENGTH(actor.first_name))),_utf8' ',CONCAT(UCASE(SUBSTR(actor.last_name,1,1)),\n\tLCASE(SUBSTR(actor.last_name,2,LENGTH(actor.last_name)))))) SEPARATOR ', ') AS actors\nFROM category LEFT JOIN film_category ON category.category_id = film_category.category_id LEFT JOIN film ON film_category.film_id = film.film_id\n        JOIN film_actor ON film.film_id = film_actor.film_id\n\tJOIN actor ON film_actor.actor_id = actor.actor_id\nGROUP BY film.film_id, category.name",
+    "Fingerprint": "create view nicer_but_slower_film_list as select film.film_id as fid, film.title as title, film.description as description, category.name as category, film.rental_rate as price, film.length as length, film.rating as rating, group_concat(concat(concat(ucase(substr(actor.first_name,?,?)), lcase(substr(actor.first_name,?,length(actor.first_name))),_utf8?,concat(ucase(substr(actor.last_name,?,?)), lcase(substr(actor.last_name,?,length(actor.last_name)))))) separator ?) as actors from category left join film_category on category.category_id = film_category.category_id left join film on film_category.film_id = film.film_id join film_actor on film.film_id = film_actor.film_id join actor on film_actor.actor_id = actor.actor_id group by film.film_id, category.name",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  },
+  {
+    "Database": "",
+    "Query": "Quit",
+    "Fingerprint": "quit",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  },
+  {
+    "Database": "",
+    "Query": "ANALYZE TABLE actor, address, category, city, country, customer, film, film_actor, film_category, film_text, inventory, language, payment, rental, staff, store",
+    "Fingerprint": "analyze table actor, address, category, city, country, customer, film, film_actor, film_category, film_text, inventory, language, payment, rental, staff, store",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  },
+  {
+    "Database": "",
+    "Query": "SELECT i FROM percona_test.load_data",
+    "Fingerprint": "select i from percona_test.load_data",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  },
+  {
+    "Database": "",
+    "Query": "REPLACE INTO percona_test.sentinela (id, ping) VALUES (1, '1dcc1893f940d4b0615d8cf540d52e8c')",
+    "Fingerprint": "replace into percona_test.sentinela (id, ping) values(?+)",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  },
+  {
+    "Database": "",
+    "Query": "ALTER TABLE `staff` DISABLE KEYS",
+    "Fingerprint": "alter table `staff` disable keys",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  },
+  {
+    "Database": "",
+    "Query": "CREATE DATABASE IF NOT EXISTS percona_test",
+    "Fingerprint": "create database if not exists percona_test",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  },
+  {
+    "Database": "",
+    "Query": "DROP TABLE IF EXISTS percona_test.checksums",
+    "Fingerprint": "drop table if exists percona_test.checksums",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  },
+  {
+    "Database": "",
+    "Query": "LOAD DATA INFILE '/tmp/load_data_test.24252' INTO TABLE percona_test.load_data",
+    "Fingerprint": "load data infile ? into table percona_test.load_data",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  },
+  {
+    "Database": "",
+    "Query": "CREATE TABLE `store` (\n  `store_id` tinyint(3) unsigned NOT NULL AUTO_INCREMENT,\n  `manager_staff_id` tinyint(3) unsigned NOT NULL,\n  `address_id` smallint(5) unsigned NOT NULL,\n  `last_update` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n  PRIMARY KEY (`store_id`),\n  UNIQUE KEY `idx_unique_manager` (`manager_staff_id`),\n  KEY `idx_fk_address_id` (`address_id`),\n  CONSTRAINT `fk_store_staff` FOREIGN KEY (`manager_staff_id`) REFERENCES `staff` (`staff_id`) ON UPDATE CASCADE,\n  CONSTRAINT `fk_store_address` FOREIGN KEY (`address_id`) REFERENCES `address` (`address_id`) ON UPDATE CASCADE\n) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8",
+    "Fingerprint": "create table `store` ( `store_id` tinyint(?) unsigned not null auto_increment, `manager_staff_id` tinyint(?) unsigned not ?, `address_id` smallint(?) unsigned not ?, `last_update` timestamp not null default current_timestamp on update current_timestamp, primary key (`store_id`), unique key `idx_unique_manager` (`manager_staff_id`), key `idx_fk_address_id` (`address_id`), constraint `fk_store_staff` foreign key (`manager_staff_id`) references `staff` (`staff_id`) on update cascade, constraint `fk_store_address` foreign key (`address_id`) references `address` (`address_id`) on update cascade ) engine=innodb auto_increment=? default charset=utf8",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  },
+  {
+    "Database": "",
+    "Query": "CREATE VIEW staff_list\nAS\nSELECT s.staff_id AS ID, CONCAT(s.first_name, _utf8' ', s.last_name) AS name, a.address AS address, a.postal_code AS `zip code`, a.phone AS phone,\n\tcity.city AS city, country.country AS country, s.store_id AS SID\nFROM staff AS s JOIN address AS a ON s.address_id = a.address_id JOIN city ON a.city_id = city.city_id\n\tJOIN country ON city.country_id = country.country_id",
+    "Fingerprint": "create view staff_list as select s.staff_id as id, concat(s.first_name, _utf8?, s.last_name) as name, a.address as address, a.postal_code as `zip code`, a.phone as phone, city.city as city, country.country as country, s.store_id as sid from staff as s join address as a on s.address_id = a.address_id join city on a.city_id = city.city_id join country on city.country_id = country.country_id",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  },
+  {
+    "Database": "",
+    "Query": "CREATE TABLE `columns_priv` (\n  `Host` char(60) COLLATE utf8_bin NOT NULL DEFAULT '',\n  `Db` char(64) COLLATE utf8_bin NOT NULL DEFAULT '',\n  `User` char(32) COLLATE utf8_bin NOT NULL DEFAULT '',\n  `Table_name` char(64) COLLATE utf8_bin NOT NULL DEFAULT '',\n  `Column_name` char(64) COLLATE utf8_bin NOT NULL DEFAULT '',\n  `Timestamp` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n  `Column_priv` set('Select','Insert','Update','References') CHARACTER SET utf8 NOT NULL DEFAULT '',\n  PRIMARY KEY (`Host`,`Db`,`User`,`Table_name`,`Column_name`)\n) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_bin COMMENT='Column privileges'",
+    "Fingerprint": "create table `columns_priv` ( `host` char(?) collate utf8_bin not null default ?, `db` char(?) collate utf8_bin not null default ?, `user` char(?) collate utf8_bin not null default ?, `table_name` char(?) collate utf8_bin not null default ?, `column_name` char(?) collate utf8_bin not null default ?, `timestamp` timestamp not null default current_timestamp on update current_timestamp, `column_priv` set(?,?,?,?) character set utf8 not null default ?, primary key (`host`,`db`,`user`,`table_name`,`column_name`) ) engine=myisam default charset=utf8 collate=utf8_bin comment=?",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  },
+  {
+    "Database": "",
+    "Query": "INSERT INTO `store` VALUES (1,1,1,'2006-02-15 11:57:12'),(2,2,2,'2006-02-15 11:57:12')",
+    "Fingerprint": "insert into `store` values(?+)",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  },
+  {
+    "Database": "",
+    "Query": "CREATE VIEW customer_list\nAS\nSELECT cu.customer_id AS ID, CONCAT(cu.first_name, _utf8' ', cu.last_name) AS name, a.address AS address, a.postal_code AS `zip code`,\n\ta.phone AS phone, city.city AS city, country.country AS country, IF(cu.active, _utf8'active',_utf8'') AS notes, cu.store_id AS SID\nFROM customer AS cu JOIN address AS a ON cu.address_id = a.address_id JOIN city ON a.city_id = city.city_id\n\tJOIN country ON city.country_id = country.country_id",
+    "Fingerprint": "create view customer_list as select cu.customer_id as id, concat(cu.first_name, _utf8?, cu.last_name) as name, a.address as address, a.postal_code as `zip code`, a.phone as phone, city.city as city, country.country as country, if(cu.active, _utf8?,_utf8?) as notes, cu.store_id as sid from customer as cu join address as a on cu.address_id = a.address_id join city on a.city_id = city.city_id join country on city.country_id = country.country_id",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  },
+  {
+    "Database": "",
+    "Query": "FLUSH TABLES",
+    "Fingerprint": "flush tables",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  },
+  {
+    "Database": "",
+    "Query": "/*!40101 SET character_set_client = @saved_cs_client */",
+    "Fingerprint": "/*!40101 set character_set_client = @saved_cs_client */",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  },
+  {
+    "Database": "",
+    "Query": "LOCK TABLES `store` WRITE",
+    "Fingerprint": "lock tables `store` write",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  },
+  {
+    "Database": "",
+    "Query": "select @@version_comment limit 1",
+    "Fingerprint": "select @@version_comment limit ?",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  },
+  {
+    "Database": "",
+    "Query": "CHECKSUM TABLES mysql.columns_priv, mysql.db, mysql.engine_cost, mysql.event, mysql.func, mysql.gtid_executed, mysql.help_category, mysql.help_keyword, mysql.help_relation, mysql.help_topic, mysql.ndb_binlog_index, mysql.plugin, mysql.proc, mysql.procs_priv, mysql.proxies_priv, mysql.server_cost, mysql.servers, mysql.tables_priv, mysql.time_zone, mysql.time_zone_leap_second, mysql.time_zone_name, mysql.time_zone_transition, mysql.time_zone_transition_type, mysql.user, sakila.actor, sakila.address, sakila.category, sakila.city, sakila.country, sakila.customer, sakila.film, sakila.film_actor, sakila.film_category, sakila.film_text, sakila.inventory, sakila.language, sakila.payment, sakila.rental, sakila.staff, sakila.store",
+    "Fingerprint": "checksum tables mysql.columns_priv, mysql.db, mysql.engine_cost, mysql.event, mysql.func, mysql.gtid_executed, mysql.help_category, mysql.help_keyword, mysql.help_relation, mysql.help_topic, mysql.ndb_binlog_index, mysql.plugin, mysql.proc, mysql.procs_priv, mysql.proxies_priv, mysql.server_cost, mysql.servers, mysql.tables_priv, mysql.time_zone, mysql.time_zone_leap_second, mysql.time_zone_name, mysql.time_zone_transition, mysql.time_zone_transition_type, mysql.user, sakila.actor, sakila.address, sakila.category, sakila.city, sakila.country, sakila.customer, sakila.film, sakila.film_actor, sakila.film_category, sakila.film_text, sakila.inventory, sakila.language, sakila.payment, sakila.rental, sakila.staff, sakila.store",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  },
+  {
+    "Database": "",
+    "Query": "CREATE TABLE IF NOT EXISTS percona_test.load_data (i int)",
+    "Fingerprint": "create table if not exists percona_test.load_data (i int)",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  },
+  {
+    "Database": "",
+    "Query": "SELECT MD5(RAND())",
+    "Fingerprint": "select md5(rand())",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  },
+  {
+    "Database": "",
+    "Query": "LOCK TABLES `staff` WRITE",
+    "Fingerprint": "lock tables `staff` write",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  },
+  {
+    "Database": "",
+    "Query": "ALTER TABLE `store` DISABLE KEYS",
+    "Fingerprint": "alter table `store` disable keys",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  },
+  {
+    "Database": "",
+    "Query": "CREATE VIEW sales_by_film_category\nAS\nSELECT\nc.name AS category\n, SUM(p.amount) AS total_sales\nFROM payment AS p\nINNER JOIN rental AS r ON p.rental_id = r.rental_id\nINNER JOIN inventory AS i ON r.inventory_id = i.inventory_id\nINNER JOIN film AS f ON i.film_id = f.film_id\nINNER JOIN film_category AS fc ON f.film_id = fc.film_id\nINNER JOIN category AS c ON fc.category_id = c.category_id\nGROUP BY c.name\nORDER BY total_sales DESC",
+    "Fingerprint": "create view sales_by_film_category as select c.name as category , sum(p.amount) as total_sales from payment as p inner join rental as r on p.rental_id = r.rental_id inner join inventory as i on r.inventory_id = i.inventory_id inner join film as f on i.film_id = f.film_id inner join film_category as fc on f.film_id = fc.film_id inner join category as c on fc.category_id = c.category_id group by c.name order by total_sales desc",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  },
+  {
+    "Database": "",
+    "Query": "SET AUTOCOMMIT=1",
+    "Fingerprint": "set autocommit=?",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  },
+  {
+    "Database": "",
+    "Query": "UPDATE mysql.proc SET created='2012-06-05 00:00:00', modified='2012-06-05 00:00:00'",
+    "Fingerprint": "update mysql.proc set created=?, modified=?",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  },
+  {
+    "Database": "",
+    "Query": "SHOW TABLES FROM mysql",
+    "Fingerprint": "show tables from mysql",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  },
+  {
+    "Database": "",
+    "Query": "INSERT INTO percona_test.checksums(db_tbl, checksum)\n   VALUES('sakila.store', 972255196)",
+    "Fingerprint": "insert into percona_test.checksums(db_tbl, checksum) values(?+)",
+    "MinimumGrants": null,
+    "LastTestedGrants": null,
+    "NotAllowed": false,
+    "Error": null,
+    "InvalidQuery": false
+  }
+]
