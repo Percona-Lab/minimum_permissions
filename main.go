@@ -28,20 +28,22 @@ import (
 var (
 	app = kingpin.New("mysql_random_data_loader", "MySQL Random Data Loader")
 
-	debug             = app.Flag("debug", "Debug mode").Bool()
+	host = app.Flag("host", "Host name/IP").Short('h').Default("127.0.0.1").String()
+	port = app.Flag("port", "Port").Short('P').Default("3306").Int()
+	user = app.Flag("user", "User").Short('u').String()
+	pass = app.Flag("password", "Password").Short('p').String()
+
 	database          = app.Flag("database", "Default database name").String()
-	host              = app.Flag("host", "Host name/IP").Short('h').Default("127.0.0.1").String()
 	maxDepth          = app.Flag("max-depth", "Maximum number of permissions to try").Default("10").Int()
-	pass              = app.Flag("password", "Password").Short('p').String()
-	port              = app.Flag("port", "Port").Short('P').Default("3306").Int()
 	prepareFile       = app.Flag("prepare-file", "File having queries to run before start").String()
 	testStatement     = app.Flag("test-statement", "Query to test").Strings()
 	noTrimLongQueries = app.Flag("no-trim-long-queris", "Do not trim long queries").Bool()
-	showVersion       = app.Flag("version", "Show version and exit").Bool()
 	slowLog           = app.Flag("slow-log", "Slow log file").ExistingFile()
 	trimQuerySize     = app.Flag("trim-query-size", "Trim queries longer than trim-query-size").Default("100").Int()
-	user              = app.Flag("user", "User").Short('u').String()
-	verbose           = app.Flag("verbose", "Show all permissions being tested").Bool()
+
+	showVersion = app.Flag("version", "Show version and exit").Bool()
+	debug       = app.Flag("debug", "Debug mode").Bool()
+	verbose     = app.Flag("verbose", "Show all permissions being tested").Bool()
 
 	Version   = "0.0.0."
 	Commit    = "<sha1>"
@@ -100,7 +102,6 @@ func main() {
 		log.Fatalf("Cannot connect to the db using %q: %s", dsn, err)
 	}
 	defer db.Close()
-	kingpin.Usage()
 
 	randomDB := fmt.Sprintf("min_perms_test_%04d", rand.Int63n(10000))
 	createQuery := fmt.Sprintf("CREATE DATABASE `%s`", randomDB)
