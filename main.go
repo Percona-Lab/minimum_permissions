@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"os"
 	"os/signal"
+	"strings"
 	"time"
 
 	"github.com/briandowns/spinner"
@@ -33,12 +34,11 @@ var (
 	user = app.Flag("user", "User").Short('u').String()
 	pass = app.Flag("password", "Password").Short('p').String()
 
-	database          = app.Flag("database", "Default database name").String()
 	maxDepth          = app.Flag("max-depth", "Maximum number of permissions to try").Default("10").Int()
-	prepareFile       = app.Flag("prepare-file", "File having queries to run before start").String()
+	prepareFile       = app.Flag("prepare-file", "File with queries to run before starting").String()
 	testStatement     = app.Flag("test-statement", "Query to test").Strings()
-	noTrimLongQueries = app.Flag("no-trim-long-queris", "Do not trim long queries").Bool()
-	slowLog           = app.Flag("slow-log", "Slow log file").ExistingFile()
+	noTrimLongQueries = app.Flag("no-trim-long-queries", "Do not trim long queries").Bool()
+	slowLog           = app.Flag("slow-log", "Test queries from this slow log file").ExistingFile()
 	trimQuerySize     = app.Flag("trim-query-size", "Trim queries longer than trim-query-size").Default("100").Int()
 
 	showVersion = app.Flag("version", "Show version and exit").Bool()
@@ -73,7 +73,12 @@ func main() {
 	}
 
 	if err != nil {
-		log.Errorln(err)
+		os.Exit(1)
+	}
+
+	if *slowLog == "" && len(*testStatement) == 0 {
+		log.Error("No input was specified. Please use --test-statement or --slow-log")
+		app.Usage([]string{})
 		os.Exit(1)
 	}
 
@@ -83,25 +88,18 @@ func main() {
 		log.SetLevel(log.DebugLevel)
 	}
 
-	protocol := "tcp"
-	hostPort := *host
-
-	if *host == "localhost" {
-		protocol = "unix"
-	} else {
-		hostPort = fmt.Sprintf("%s:%d", *host, *port)
-	}
-
-	dsn := fmt.Sprintf("%s:%s@%s(%s)/%s?multiStatements=true", *user, *pass, protocol, hostPort, *database)
-	log.Debugf("Connecting to the database using DSN: %s", dsn)
-	db, err := sql.Open("mysql", dsn)
+	db, err := getDBConnection(*host, *user, *pass, *port)
 	if err != nil {
-		log.Fatalf("Cannot connect to the db using %q: %s", dsn, err)
-	}
-	if err = db.Ping(); err != nil {
-		log.Fatalf("Cannot connect to the db using %q: %s", dsn, err)
+		log.Fatal(err)
 	}
 	defer db.Close()
+
+	if v, e := validGrants(db); !v || e != nil {
+		if e != nil {
+			log.Fatal(e)
+		}
+		log.Fatalf("The user %q must have GRANT OPTION", *user)
+	}
 
 	randomDB := fmt.Sprintf("min_perms_test_%04d", rand.Int63n(10000))
 	createQuery := fmt.Sprintf("CREATE DATABASE `%s`", randomDB)
@@ -112,7 +110,7 @@ func main() {
 		log.Fatalf("Cannot create the random database %q: %s", randomDB, err)
 	}
 
-	templateDSN := fmt.Sprintf("%%s:%%s@%s(%s)/%s?autocommit=0", protocol, hostPort, randomDB)
+	templateDSN := getTemplateDSN(*host, *port, randomDB)
 
 	if *prepareFile != "" {
 		if err = prepare(db, *prepareFile); err != nil {
@@ -238,6 +236,11 @@ func test(testCases []*tester.TestingCase, db *sql.DB, templateDSN string, grant
 	return results, invalidQueries
 }
 
+// removeGrantFromList removes a specific grant from the list of grants.
+// This is needed because not in all MySQL servers we can use all grants, for example
+// SUPER is not enabled on Amazon RDS so, if we detect a specific grant cannot be used,
+// we need to remove it from the list of grants to avoid including it in a combination
+// with other grants to speed up the process.
 func removeGrantFromList(grants []string, grant string) []string {
 	for i := 0; i < len(grants); i++ {
 		if grants[i] == grant {
@@ -395,4 +398,50 @@ func readSlowLog(filename string) ([]*tester.TestingCase, error) {
 	slp.Stop()
 
 	return testCases, nil
+}
+
+func getDBConnection(host, user, password string, port int) (*sql.DB, error) {
+	protocol, hostPort := getProtocolAndHost(host, port)
+	dsn := fmt.Sprintf("%s:%s@%s(%s)/?multiStatements=true", user, password, protocol, hostPort)
+	log.Debugf("Connecting to the database using DSN: %s", dsn)
+
+	db, err := sql.Open("mysql", dsn)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Cannot connect to the db using %q", dsn)
+	}
+
+	if err = db.Ping(); err != nil {
+		return nil, errors.Wrapf(err, "Cannot connect to the db using %q", dsn)
+	}
+
+	return db, nil
+}
+
+func getTemplateDSN(host string, port int, database string) string {
+	protocol, hostPort := getProtocolAndHost(host, port)
+	return fmt.Sprintf("%%s:%%s@%s(%s)/%s?autocommit=0", protocol, hostPort, database)
+}
+
+func getProtocolAndHost(host string, port int) (string, string) {
+	protocol := "tcp"
+	hostPort := host
+
+	if host == "localhost" {
+		protocol = "unix"
+	} else {
+		hostPort = fmt.Sprintf("%s:%d", host, port)
+	}
+	return protocol, hostPort
+}
+
+func validGrants(db *sql.DB) (bool, error) {
+	var grants string
+	err := db.QueryRow("SHOW GRANTS").Scan(&grants)
+	if err != nil {
+		return false, errors.Wrap(err, "Cannot get grants")
+	}
+	if strings.Contains(grants, "WITH GRANT OPTION") {
+		return true, nil
+	}
+	return false, nil
 }
