@@ -110,3 +110,7 @@ func TestReadSlowLog(t *testing.T) {
 
 	tu.Equals(t, len(tc), 39)
 }
+
+//func TestSandbox(t *testing.T) {
+//	startSandbox()
+//}

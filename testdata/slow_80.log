@@ -2016,7 +2016,7 @@ select @@version_comment limit 1;
 # User@Host: msandbox[msandbox] @ localhost []  Id:    15
 # Query_time: 0.000023  Lock_time: 0.000000 Rows_sent: 0  Rows_examined: 0
 SET timestamp=1517798807;
-SET AUTOCOMMIT=1;
+SELECT TIME_TO_SEC(TIMEDIFF(NOW(), t.trx_started)) duration_secs, now(), p.time, p.id, th.thread_id, t.trx_state, p.command, IFNULL(t.trx_query,'') as 't.trx_query', IFNULL(th.processlist_info,'') as 'th.processlist_info,', IFNULL(th.processlist_state,'') as 'th.processlist_info', IFNULL(p.info,'') as 'p.info', IFNULL(p.state,'') as 'p.state', t.trx_rows_locked ,trx_rows_modified ,p.user, p.host, p.db FROM INFORMATION_SCHEMA.INNODB_TRX t JOIN INFORMATION_SCHEMA.PROCESSLIST p ON t.trx_mysql_thread_id = p.id JOIN performance_schema.threads th ON th.processlist_id = t.trx_mysql_thread_id order by duration_secs desc;
 # Time: 2018-02-05T02:46:47.416844Z
 # User@Host: msandbox[msandbox] @ localhost []  Id:    15
 # Query_time: 0.000283  Lock_time: 0.000176 Rows_sent: 0  Rows_examined: 0
@@ -2025,5 +2025,4 @@ REPLACE INTO percona_test.sentinela (id, ping) VALUES (1, '1dcc1893f940d4b0615d8
 # Time: 2018-02-05T02:46:47.416862Z
 # User@Host: msandbox[msandbox] @ localhost []  Id:    15
 # Query_time: 0.000003  Lock_time: 0.000000 Rows_sent: 0  Rows_examined: 0
-SET timestamp=1517798807;
 # administrator command: Quit;

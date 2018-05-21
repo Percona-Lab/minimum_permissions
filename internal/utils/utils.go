@@ -2,6 +2,8 @@ package utils
 
 import (
 	"math/rand"
+	"os/user"
+	"path/filepath"
 	"time"
 )
 
@@ -27,4 +29,14 @@ func RandomString(n int) string {
 	}
 
 	return string(b)
+}
+
+func ExpandHomeDir(path string) string {
+	usr, _ := user.Current()
+	dir := usr.HomeDir
+
+	if len(path) > 1 && path[:2] == "~/" {
+		path = filepath.Join(dir, path[2:])
+	}
+	return path
 }

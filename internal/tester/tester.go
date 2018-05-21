@@ -6,10 +6,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Percona-Lab/minimum_permissions/internal/utils"
 	"github.com/go-sql-driver/mysql"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 )
 
 type TestConnection struct {
@@ -35,31 +34,38 @@ type TestingCase struct {
 
 func NewTestConnection(conn *sql.DB, dsnTemplate string, grants []string) (*TestConnection, error) {
 	tc := &TestConnection{
-		testUser:    utils.RandomString(12),
-		testPass:    utils.RandomString(12),
+		testUser:    "someuser", //utils.RandomString(12),
+		testPass:    "somepass", //utils.RandomString(12),
 		mainConn:    conn,
 		dsnTemplate: dsnTemplate,
 		grants:      grants,
 	}
-	query := fmt.Sprintf("GRANT %s ON *.* TO `%s`@`%%` IDENTIFIED BY '%s'", strings.Join(grants, ", "), tc.testUser, tc.testPass)
-	log.Debug(strings.Repeat("-", 100))
-	log.Debug(query)
-	log.Debug(strings.Repeat("-", 100))
-
+	log.Debug().Msg(strings.Repeat("-", 100))
+	query := fmt.Sprintf("CREATE USER '%s'@'%%' IDENTIFIED WITH mysql_native_password BY '%s'", tc.testUser, tc.testPass)
+	log.Debug().Msg(query)
 	_, err := tc.mainConn.Exec(query)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Cannot create a new testing user: %q", query)
+	}
+	query = fmt.Sprintf("GRANT %s ON *.* TO '%s'@'%%'", strings.Join(grants, ", "), tc.testUser)
+	log.Debug().Msg(query)
+	log.Debug().Msg(strings.Repeat("-", 100))
+
+	_, err = tc.mainConn.Exec(query)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Cannot GRANT privileges: %q", query)
 	}
-	conn.Exec("FLUSH PRIVILEGES")
+	//log.Debug().Msg("FLUSH PRIVILEGES")
+	//conn.Exec("FLUSH PRIVILEGES")
 
 	tc.testDSN = fmt.Sprintf(dsnTemplate, tc.testUser, tc.testPass)
 	tc.testConn, err = sql.Open("mysql", tc.testDSN)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Cannot connect to the db using the test connection %q", tc.testDSN)
 	}
-	tc.testConn.SetMaxOpenConns(10)
-	tc.testConn.SetMaxIdleConns(10)
 
+	tc.testConn.SetMaxOpenConns(10)
+	tc.testConn.SetMaxIdleConns(0)
 	return tc, nil
 }
 
@@ -115,6 +121,7 @@ func (tc *TestConnection) testQuery(testCase *TestingCase, wg *sync.WaitGroup) {
 
 	if err == nil {
 		testCase.MinimumGrants = tc.grants
+		tx.Rollback()
 	} else {
 		testCase.Error = err
 		testCase.LastTestedGrants = tc.grants

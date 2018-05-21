@@ -33,7 +33,7 @@ func stripCtlFromUTF8(str string) string {
 }
 
 func PrintReport(rg map[string][]string, w io.Writer) error {
-	report := `### Minimum Permissions
+	report := `### Minimum Permissions ----------------------------------------------------------------------------
 {{ range $index, $element := . }}
 ----------------------------------------------------------------------------------------------------
 Grants : {{ $index }}
@@ -44,8 +44,18 @@ Grants : {{ $index }}
 
 {{ end}}
 `
-
 	t := template.Must(template.New("report").Parse(report))
 	err := t.Execute(w, rg)
+	return err
+}
+
+func PrintInvalidQueries(iq []*tester.TestingCase, w io.Writer) error {
+	report := `### Invalid Queries --------------------------------------------------------------------------------
+{{ range . }}
+{{ .Query }}: {{ .LastError }}
+{{ end}}
+`
+	t := template.Must(template.New("report").Parse(report))
+	err := t.Execute(w, iq)
 	return err
 }
