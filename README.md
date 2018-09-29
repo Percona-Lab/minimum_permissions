@@ -1,19 +1,79 @@
 # minimum_permissions
 Get the minimum set of permissions needed to run a particular query
+Many times at Percona we found that a big number of MySQL instances running with users having too many permissions they
+don't need. In general, many persons just do `GRANT ALL on *.* to 'user'@'host'`.
+This is a big security risk not only to prevent external/unauthorized access to the database, but also lets that user to
+any any query, even those queries that deletes data o alter the database structure.
+  
+This tool born when we were testing Percona Toolkit with MySQL 8.0.3 to prepare all the tools to run under the new MySQL
+version and we came across this scenario:
+
+One test of pt-table-sync, needs to check the output when running with an underprivileged user.
+To do that, it creates a user and grants him these permissions:
+
+```
+GRANT SUPER, SELECT, UPDATE, SHOW DATABASES ON *.* TO 'test_907'\@'localhost' IDENTIFIED BY 'msandbox'
+```
+and then, pt-table-checksum runs this query:
+
+```
+SELECT `i`, COUNT(*) AS test_count FROM `issue_907`.`t` WHERE 1=1 GROUP BY i ORDER BY i LOCK IN SHARE MODE
+```
+The problem here is that granting UPDATE and SHOW DATABASES is enough on MySQL 5.7 but it isn’t for MySQL 8.0.4-rc so, which 
+are the minimum permissions we need?
+
+What the tool does, is to get the list of all permissions and then it start setting the permissions individually, in groups of 2,
+in groups of 3, etc, using all combinations and runs the provides queries until it found the query execution was
+successful, grouping queries with their minimum required grants.
 
 ## Usage
-The program needs a user with GRANT OPTION to be able to create a testing user with a particular set of
-permissions to be tested.
+Since this program runs queries that could modify, alter or delete data, it cannot be ran using an existing MySQL
+instance for security reasons. Because of that, the program needs to know the location of the MySQL binaries and it will
+start its own MySQL sandbox instance in a temporary directory.
+#### Example 
+I have this directories having different MySQL flavors, at `~/mysql`:  
+```
+├── mdb-10.1
+├── mdb-10.2
+├── my-5.5
+├── my-5.6
+├── my-5.7
+├── my-8.0
+├── ps-5.5
+├── ps-5.6
+└── ps-5.7
+```
+Also I have a `slow.log` file I use for testing purposes in my home dir. To get the minimum permissions needed to run
+all the queries in that slow.log file, I need to run:
+```
+./minimum_permissions --mysql-base-dir=~/mysql/my-8.0 --slow-log=~/slow.log
+
+```
+
+### Flags
+|Flag|Description|Notes|
+|-----|-----|-----|
+|-h, --help|Show context-sensitive help (also try --help-long and --help-man)| |
+|--mysql-base-dir|Path to the MySQL base directory (parent of bin/)|Required|
+|--max-depth|Maximum number of simultaneous permissions to try|Default: 10|
+|--prepare-file|File with queries to run before starting| | 
+|--test-statement|Individual query to test| |
+|--no-trim-long-queries|Do not trim long queries|Default: false|
+|--keep-sandbox|Do not stop/remove the sandbox after finishing|Default: false|
+|--slow-log|Test queries from this slow log file| |
+|--input-file|Plain text file with input queries. Queries in this file must end with a `;`| |
+|--trim-query-size|Trim queries longer than trim-query-size|Default: 100|
+|--show-invalid-queries|Show invalid queries|Default: false|
+|--version|Show version and exit| | 
+|--debug|Show extra debug information|default: false |
+|--quiet|Don't show info level notificacions and progress|Default: false|
 
 ### Testing one query
 ```
-minimum_permissions --user=root --password=msandbox --host=127.0.0.1 --port=3306 --test-statement='SELECT i, COUNT(*) AS test_count FROM issue_907.t WHERE 1=1 GROUP BY i ORDER BY i LOCK IN SHARE MODE'
-```
-### Testing all the queries from a slow log file
-```
-minimum_permissions --user=root --password=msandbox --host=127.0.0.1 --port=3306 --slow-log=testdata/slow_80.log
+minimum_permissions --mysql-base-dir=~/mysql/my-8.0 --test-statement='SELECT i, COUNT(*) AS test_count FROM issue_907.t WHERE 1=1 GROUP BY i ORDER BY i LOCK IN SHARE MODE'
 ```
 
+## Output
 The output will be something like this:
 ```
 ### Minimum Permissions

@@ -3,14 +3,50 @@ package tester
 import (
 	"database/sql"
 	"fmt"
+	"log"
+	"os"
 	"sync"
 	"testing"
 
 	tu "github.com/Percona-Lab/pt-mysql-config-diff/testutils"
+	_ "github.com/go-sql-driver/mysql"
+	mysql "github.com/go-sql-driver/mysql"
 )
 
+var dsn, templateDSN string
+var db *sql.DB
+
+func TestMain(m *testing.M) {
+	envDSN := os.Getenv("TEST_DSN")
+	if envDSN == "" {
+		log.Fatalf("TEST_DSN env var is empty")
+	}
+
+	cfg, err := mysql.ParseDSN(envDSN)
+	if err != nil {
+		log.Fatalf("Cannot parse TEST_DSN: %s", err)
+	}
+	cfg.AllowNativePasswords = true
+	cfg.MultiStatements = true
+	dsn = cfg.FormatDSN()
+
+	templateDSN := fmt.Sprintf("%%s:%%s@%s(%s)/?autocommit=0", cfg.Net, cfg.Addr)
+	log.Printf("Test DSN: %q", dsn)
+	log.Printf("Template DSN: %q", templateDSN)
+
+	db, err = sql.Open("mysql", dsn)
+	if err != nil {
+		log.Fatalf("Cannot connect to the DB: %s", err)
+	}
+
+	if err = db.Ping(); err != nil {
+		log.Fatalf("Cannot ping the DB: %s", err)
+	}
+
+	os.Exit(m.Run())
+}
+
 func TestNewConnection(t *testing.T) {
-	db, templateDSN := makeConnAndTemplateDSN(t)
 	grants := []string{"SELECT", "UPDATE"}
 
 	tc, err := NewTestConnection(db, templateDSN, grants)
@@ -31,7 +67,6 @@ func TestNewConnection(t *testing.T) {
 }
 
 func TestTestQueries(t *testing.T) {
-	db, templateDSN := makeConnAndTemplateDSN(t)
 	queries := []string{
 		"SELECT `i`, COUNT(*) FROM `d1`.`t` WHERE 1=1 GROUP BY i ORDER BY i LOCK IN SHARE MODE",
 		"insert into d1.t values (2)",
@@ -50,6 +85,7 @@ func TestTestQueries(t *testing.T) {
 	}
 
 	tu.LoadQueriesFromFile(t, db, "prep.sql")
+	stopChan := make(chan bool)
 
 	for i, test := range expects {
 		testCases := []*TestingCase{}
@@ -61,7 +97,7 @@ func TestTestQueries(t *testing.T) {
 		tu.IsNil(t, err)
 		tu.Assert(t, tc != nil, "Test Connection is nil")
 
-		okCount := tc.TestQueries(testCases)
+		okCount := tc.TestQueries(testCases, stopChan)
 
 		tu.Assert(t, okCount == test.OkCount, fmt.Sprintf("#%d: OK count should be %d but is: %d",
 			i+1, test.OkCount, okCount))
@@ -71,7 +107,6 @@ func TestTestQueries(t *testing.T) {
 }
 
 func TestTestQuery(t *testing.T) {
-	db, templateDSN := makeConnAndTemplateDSN(t)
 	query := "SELECT `i`, COUNT(*) FROM `d1`.`t` WHERE 1=1 GROUP BY i ORDER BY i LOCK IN SHARE MODE"
 
 	expects := []struct {
@@ -109,20 +144,4 @@ func TestTestQuery(t *testing.T) {
 
 		tc.Destroy()
 	}
-
-}
-
-func makeConnAndTemplateDSN(t testing.TB) (*sql.DB, string) {
-	proto := "tcp"
-	host := "127.0.0.1:3308"
-	user := "root"
-	pass := ""
-
-	dsn := fmt.Sprintf("%s:%s@%s(%s)/?multiStatements=true", user, pass, proto, host)
-	db, err := sql.Open("mysql", dsn)
-	tu.IsNil(t, err, fmt.Sprintf("Cannot connect to the db using %q", dsn))
-
-	templateDSN := fmt.Sprintf("%%s:%%s@%s(%s)/?autocommit=0", proto, host)
-
-	return db, templateDSN
 }

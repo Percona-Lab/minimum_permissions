@@ -40,10 +40,16 @@ func NewTestConnection(conn *sql.DB, dsnTemplate string, grants []string) (*Test
 		dsnTemplate: dsnTemplate,
 		grants:      grants,
 	}
+	if conn == nil {
+		return nil, fmt.Errorf("Main MySQL connection is nil")
+	}
+	// Drop the user just in case it exists. Don't check for errors because it might not exit.
+	_, err := tc.mainConn.Exec(fmt.Sprintf("DROP USER '%s'@'%%'", tc.testUser))
+
 	log.Debug().Msg(strings.Repeat("-", 100))
-	query := fmt.Sprintf("CREATE USER '%s'@'%%' IDENTIFIED WITH mysql_native_password BY '%s'", tc.testUser, tc.testPass)
+	query := fmt.Sprintf("CREATE USER '%s'@'%%' IDENTIFIED BY '%s'", tc.testUser, tc.testPass)
 	log.Debug().Msg(query)
-	_, err := tc.mainConn.Exec(query)
+	_, err = tc.mainConn.Exec(query)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Cannot create a new testing user: %q", query)
 	}
@@ -55,8 +61,6 @@ func NewTestConnection(conn *sql.DB, dsnTemplate string, grants []string) (*Test
 	if err != nil {
 		return nil, errors.Wrapf(err, "Cannot GRANT privileges: %q", query)
 	}
-	//log.Debug().Msg("FLUSH PRIVILEGES")
-	//conn.Exec("FLUSH PRIVILEGES")
 
 	tc.testDSN = fmt.Sprintf(dsnTemplate, tc.testUser, tc.testPass)
 	tc.testConn, err = sql.Open("mysql", tc.testDSN)
@@ -64,8 +68,8 @@ func NewTestConnection(conn *sql.DB, dsnTemplate string, grants []string) (*Test
 		return nil, errors.Wrapf(err, "Cannot connect to the db using the test connection %q", tc.testDSN)
 	}
 
-	tc.testConn.SetMaxOpenConns(10)
-	tc.testConn.SetMaxIdleConns(0)
+	tc.testConn.SetMaxOpenConns(1)
+	tc.testConn.SetMaxIdleConns(1)
 	return tc, nil
 }
 
@@ -74,8 +78,6 @@ func (tc *TestConnection) TestQueries(testCases []*TestingCase, stopChan chan bo
 
 	stop := false
 	for i := 0; i < len(testCases) && !stop; i++ {
-		// If we know from a previous run that this is an invalid query,
-		// don't test it again
 		testCase := testCases[i]
 		select {
 		case <-stopChan:
@@ -83,11 +85,13 @@ func (tc *TestConnection) TestQueries(testCases []*TestingCase, stopChan chan bo
 			continue
 		default:
 		}
+		// If we know from a previous run that this is an invalid query, don't test it again
 		if testCase.InvalidQuery {
 			continue
 		}
 		wg.Add(1)
-		go tc.testQuery(testCase, &wg)
+		//go tc.testQuery(testCase, &wg)
+		tc.testQuery(testCase, &wg)
 	}
 	wg.Wait()
 
@@ -121,7 +125,7 @@ func (tc *TestConnection) testQuery(testCase *TestingCase, wg *sync.WaitGroup) {
 
 	if err == nil {
 		testCase.MinimumGrants = tc.grants
-		tx.Rollback()
+		//tx.Rollback()
 	} else {
 		testCase.Error = err
 		testCase.LastTestedGrants = tc.grants
@@ -168,11 +172,12 @@ func (tc *TestConnection) Destroy() error {
 	if tc.mainConn == nil {
 		return nil
 	}
+	tc.testConn.Close()
+
 	query := fmt.Sprintf("DROP USER `%s`@`%%`", tc.testUser)
 	_, err := tc.mainConn.Exec(query)
 	if err != nil {
 		return errors.Wrap(err, "Cannot destroy test connection")
 	}
-	tc.testConn.Close()
 	return nil
 }

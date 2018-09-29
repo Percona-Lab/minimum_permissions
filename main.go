@@ -14,14 +14,11 @@ import (
 	"reflect"
 	"runtime"
 	"strings"
-	"time"
 
-	"github.com/briandowns/spinner"
 	slo "github.com/percona/go-mysql/log"
 	"github.com/percona/go-mysql/query"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/Percona-Lab/minimum_permissions/internal/report"
 	"github.com/Percona-Lab/minimum_permissions/internal/tester"
@@ -48,18 +45,18 @@ var (
 	testStatement      = app.Flag("test-statement", "Query to test").Strings()
 	noTrimLongQueries  = app.Flag("no-trim-long-queries", "Do not trim long queries").Bool()
 	keepSandbox        = app.Flag("keep-sandbox", "Do not stop/remove the sandbox after finishing").Bool()
-	slowLog            = app.Flag("slow-log", "Test queries from this slow log file").ExistingFile()
+	slowLog            = app.Flag("slow-log", "Test queries from this slow log file").String()
 	inputFile          = app.Flag("input-file", "Plain text file with input queries. Queries in this file must end with a ;").String()
 	trimQuerySize      = app.Flag("trim-query-size", "Trim queries longer than trim-query-size").Default("100").Int()
 	showInvalidQueries = app.Flag("show-invalid-queries", "Show invalid queries").Bool()
 
 	showVersion = app.Flag("version", "Show version and exit").Bool()
 	debug       = app.Flag("debug", "Debug mode").Bool()
-	verbose     = app.Flag("verbose", "Show all permissions being tested").Bool()
+	quiet       = app.Flag("quiet", "Don't show info level notificacions and progress").Bool()
 
 	host           = "127.0.0.1"
 	port           = 0
-	user           = "msandbox"
+	user           = "root"
 	password       = "msandbox"
 	sandboxDirName = "sandbox"
 
@@ -99,12 +96,14 @@ func main() {
 	}
 
 	if err != nil {
-		os.Exit(1)
+		log.Fatal().Msg(err.Error())
+		app.Usage(os.Args[1:])
 	}
+	*mysqlBaseDir = utils.ExpandHomeDir(*mysqlBaseDir)
 
-	zerolog.SetGlobalLevel(zerolog.ErrorLevel)
-	if *verbose {
-		zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	if *quiet {
+		zerolog.SetGlobalLevel(zerolog.ErrorLevel)
 	}
 	if *debug {
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
@@ -119,6 +118,7 @@ func main() {
 		log.Error().Msg("Test cases list is empty.")
 		log.Fatal().Msg("Please use --slow-log and/or --input-file and/or --test-statement parameters")
 	}
+	log.Info().Msgf("Total number of queries to test: %d", len(testCases))
 
 	log.Debug().Msg("Test cases:")
 	for i, tc := range testCases {
@@ -142,6 +142,7 @@ func main() {
 		cleanupActions = append(cleanupActions, &cleanupAction{Func: removeSandboxDir, Args: []interface{}{sandboxDir}})
 	}
 
+	// Start the sandbox
 	log.Info().Msgf("Sandbox dir: %s", sandboxDir)
 	log.Info().Msg("Starting the sandbox")
 	startSandbox(*mysqlBaseDir, sandboxDir, port)
@@ -165,6 +166,7 @@ func main() {
 	randomDB := fmt.Sprintf("min_perms_test_%04d", rand.Int63n(10000))
 	log.Debug().Msgf("Testing database name: %s", randomDB)
 
+	_, err = db.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS `%s`", randomDB))
 	createQuery := fmt.Sprintf("CREATE DATABASE `%s`", randomDB)
 	log.Debug().Msgf("Exec: %q", createQuery)
 	_, err = db.Exec(createQuery)
@@ -189,11 +191,13 @@ func main() {
 	}
 	log.Debug().Msgf("Grants to test:\n%+v", grants)
 
-	s := spinner.New(spinner.CharSets[0], 100*time.Millisecond) // Build our new spinner
-	if terminal.IsTerminal(int(os.Stdout.Fd())) && !*verbose {
-		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
-		s.Start()
-	}
+	// Start the spinner only if running in a terminal and if verbose has not been
+	// specified, otherwise, the spinner will mess the output
+	//s := spinner.New(spinner.CharSets[0], 100*time.Millisecond)
+	//if terminal.IsTerminal(int(os.Stdout.Fd())) && !*verbose {
+	//	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+	//	s.Start()
+	//}
 
 	stopChan := make(chan bool)
 
@@ -206,12 +210,11 @@ func main() {
 		fmt.Println("CTRL+C detected. Finishing ...")
 	}()
 
-	results, invalidQueries := test(testCases, db, templateDSN, grants, *maxDepth, stopChan)
+	results, invalidQueries := test(testCases, db, templateDSN, grants, *maxDepth, stopChan, *quiet)
 
-	if terminal.IsTerminal(int(os.Stdout.Fd())) && !*verbose {
-		s.Stop()
-	}
-
+	// if terminal.IsTerminal(int(os.Stdout.Fd())) && !*verbose {
+	// 	s.Stop()
+	// }
 	if *showInvalidQueries || *debug {
 		report.PrintInvalidQueries(invalidQueries, os.Stdout)
 		fmt.Println("")
@@ -225,27 +228,9 @@ func main() {
 	report.PrintReport(report.GroupResults(results), os.Stdout)
 }
 
-func runCleanupActions(actions *[]*cleanupAction) {
-	log.Info().Msg("Cleaning up")
-	log.Debug().Msgf("Cleanup actions list lenght: %d", len(*actions))
-	for i := len(*actions) - 1; i >= 0; i-- {
-		action := (*actions)[i]
-		name := runtime.FuncForPC(reflect.ValueOf(action.Func).Pointer()).Name()
-		log.Debug().Msgf("Running cleanup action #%d - %s", i, name)
-		if err := action.Func(action.Args); err != nil {
-			log.Error().Msgf("Cannot run cleanup action %s #%d: %s", name, i, err)
-		}
-	}
-}
-
 func closeDB(args []interface{}) error {
 	db := args[0].(*sql.DB)
 	return db.Close()
-}
-
-func removeSandboxDir(args []interface{}) error {
-	log.Info().Msgf("Removing sandbox dir %s", args[0].(string))
-	return os.RemoveAll(args[0].(string))
 }
 
 func dropTempDB(args []interface{}) error {
@@ -254,15 +239,6 @@ func dropTempDB(args []interface{}) error {
 	log.Debug().Msgf("Dropping db %q", dbName)
 	_, err := conn.Exec(fmt.Sprintf("DROP DATABASE `%s`", dbName))
 	return err
-}
-
-func stopSandbox(args []interface{}) error {
-	sandboxDir := args[0].(string)
-	stopCmd := path.Join(sandboxDir, "stop")
-	cmd := exec.Command(stopCmd)
-	log.Info().Msg("Stopping the sandbox")
-	log.Debug().Msgf("Sandbox stop command: %q", stopCmd)
-	return cmd.Run()
 }
 
 func buildTestCasesList(testStatement []string, slowLog, plainFile string) ([]*tester.TestingCase, error) {
@@ -288,7 +264,7 @@ func buildTestCasesList(testStatement []string, slowLog, plainFile string) ([]*t
 		log.Info().Msgf("Adding queries from plain file: %q", plainFile)
 		tc, err := readSlowLog(plainFile)
 		if err != nil {
-			return nil, errors.Wrapf(err, "Cannot read slow log from %q", inputFile)
+			return nil, errors.Wrapf(err, "Cannot read slow log from %q", *inputFile)
 		}
 		testCases = append(testCases, tc...)
 	}
@@ -296,12 +272,41 @@ func buildTestCasesList(testStatement []string, slowLog, plainFile string) ([]*t
 	return testCases, nil
 }
 
+func getFreePort() (int, error) {
+	loopback, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	if err != nil {
+		return 0, err
+	}
+
+	listener, err := net.ListenTCP("tcp", loopback)
+	if err != nil {
+		return 0, err
+	}
+	defer listener.Close()
+	return listener.Addr().(*net.TCPAddr).Port, nil
+}
+
+func runCleanupActions(actions *[]*cleanupAction) {
+	log.Info().Msg("Cleaning up")
+	log.Debug().Msgf("Cleanup actions list lenght: %d", len(*actions))
+	for i := len(*actions) - 1; i >= 0; i-- {
+		action := (*actions)[i]
+		name := runtime.FuncForPC(reflect.ValueOf(action.Func).Pointer()).Name()
+		log.Debug().Msgf("Running cleanup action #%d - %s", i, name)
+		if err := action.Func(action.Args); err != nil {
+			log.Error().Msgf("Cannot run cleanup action %s #%d: %s", name, i, err)
+		}
+	}
+}
+
 func test(testCases []*tester.TestingCase, db *sql.DB, templateDSN string, grants []string,
-	maxDepth int, stopChan chan bool) ([]*tester.TestingCase, []*tester.TestingCase) {
+	maxDepth int, stopChan chan bool, quiet bool) ([]*tester.TestingCase, []*tester.TestingCase) {
 	results := []*tester.TestingCase{}
 	invalidQueries := []*tester.TestingCase{}
 	stop := false
 
+	totalQueries := len(testCases)
+	progress := ""
 	for n := 1; n < maxDepth && !stop; n++ {
 		// grantsCombinations is a slice of slices having all combinations in groups of n
 		// Example: n=2
@@ -317,12 +322,14 @@ func test(testCases []*tester.TestingCase, db *sql.DB, templateDSN string, grant
 			stop = true
 		default:
 		}
+
 		grantsCombinations := getGrantsCombinations(grants, n)
 
 		for j := 0; j < len(grantsCombinations) && !stop; j++ {
 			grants := grantsCombinations[j]
 			select {
 			case <-stopChan:
+				fmt.Println("")
 				stop = true
 				continue
 			default:
@@ -338,6 +345,18 @@ func test(testCases []*tester.TestingCase, db *sql.DB, templateDSN string, grant
 				break
 			}
 
+			if len(progress) > 50 {
+				progress = ""
+			}
+			progress = progress + "."
+			cleanup := strings.Repeat(" ", 51-len(progress))
+			found := len(results)
+			invalid := len(invalidQueries)
+			remaining := totalQueries - found - invalid
+			if !quiet {
+				fmt.Printf("Found GRANTS for %d queries. Invalid queries found: %d. Still testing %d queries. %s%s\r", found, invalid, remaining, progress, cleanup)
+			}
+
 			tr := testQueries(testConn, testCases, stopChan)
 
 			testConn.Destroy()
@@ -351,6 +370,7 @@ func test(testCases []*tester.TestingCase, db *sql.DB, templateDSN string, grant
 			}
 		}
 	}
+	fmt.Println()
 
 	return results, invalidQueries
 }
@@ -437,10 +457,9 @@ func comb(n, m int) [][]int {
 }
 
 func getAllGrants(db *sql.DB) ([]string, error) {
-	grants := []string{"SELECT", "INSERT", "DELETE", "UPDATE", "ALTER",
-		"ALTER ROUTINE", "CREATE", "CREATE ROUTINE", "CREATE TABLESPACE",
-		"CREATE TEMPORARY TABLES", "CREATE USER",
-		"CREATE VIEW", "DROP", "EVENT", "EXECUTE", "FILE",
+	grants := []string{"SELECT", "INSERT", "DELETE", "UPDATE", "CREATE", "ALTER", "DROP",
+		"CREATE TEMPORARY TABLES", "ALTER ROUTINE", "CREATE ROUTINE", "CREATE TABLESPACE",
+		"CREATE USER", "CREATE VIEW", "EVENT", "EXECUTE", "FILE",
 		"GRANT OPTION", "INDEX", "LOCK TABLES", "PROCESS",
 		"REFERENCES", "RELOAD", "REPLICATION CLIENT", "REPLICATION SLAVE",
 		"SHOW DATABASES", "SHOW VIEW", "SHUTDOWN ", "SUPER",
@@ -584,14 +603,15 @@ func getDBConnection(host, user, password string, port int) (*sql.DB, error) {
 	if err = db.Ping(); err != nil {
 		return nil, errors.Wrapf(err, "Cannot connect to the db using %q", dsn)
 	}
-	db.SetMaxOpenConns(10)
+	db.SetMaxOpenConns(1)
 
 	return db, nil
 }
 
 func getTemplateDSN(host string, port int, database string) string {
 	protocol, hostPort := getProtocolAndHost(host, port)
-	return fmt.Sprintf("%%s:%%s@%s(%s)/%s", protocol, hostPort, database)
+	//return fmt.Sprintf("%%s:%%s@%s(%s)/%s", protocol, hostPort, database)
+	return fmt.Sprintf("%%s:%%s@%s(%s)/", protocol, hostPort)
 }
 
 func getProtocolAndHost(host string, port int) (string, string) {
@@ -618,8 +638,12 @@ func validGrants(db *sql.DB) (bool, error) {
 	return false, nil
 }
 
-func startSandbox(baseDir, sandboxDir string, port int) {
+func removeSandboxDir(args []interface{}) error {
+	log.Info().Msgf("Removing sandbox dir %s", args[0].(string))
+	return os.RemoveAll(args[0].(string))
+}
 
+func startSandbox(baseDir, sandboxDir string, port int) {
 	sb := sandbox.SandboxDef{
 		DirName:           sandboxDirName,
 		SBType:            "single",
@@ -639,7 +663,7 @@ func startSandbox(baseDir, sandboxDir string, port int) {
 		BasePort:          0,
 		MorePorts:         nil,
 		Prompt:            "",
-		DbUser:            "msandbox",
+		DbUser:            "root",
 		RplUser:           "",
 		DbPassword:        "msandbox",
 		RplPassword:       "",
@@ -671,16 +695,11 @@ func startSandbox(baseDir, sandboxDir string, port int) {
 	sandbox.CreateSingleSandbox(sb)
 }
 
-func getFreePort() (int, error) {
-	loopback, err := net.ResolveTCPAddr("tcp", "localhost:0")
-	if err != nil {
-		return 0, err
-	}
-
-	listener, err := net.ListenTCP("tcp", loopback)
-	if err != nil {
-		return 0, err
-	}
-	defer listener.Close()
-	return listener.Addr().(*net.TCPAddr).Port, nil
+func stopSandbox(args []interface{}) error {
+	sandboxDir := args[0].(string)
+	stopCmd := path.Join(sandboxDir, "stop")
+	cmd := exec.Command(stopCmd)
+	log.Info().Msg("Stopping the sandbox")
+	log.Debug().Msgf("Sandbox stop command: %q", stopCmd)
+	return cmd.Run()
 }

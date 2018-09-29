@@ -3,12 +3,52 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"strconv"
 	"testing"
 
 	"github.com/Percona-Lab/minimum_permissions/internal/tester"
 	tu "github.com/Percona-Lab/minimum_permissions/internal/testutils"
-	"github.com/go-sql-driver/mysql"
+	_ "github.com/go-sql-driver/mysql"
+	mysql "github.com/go-sql-driver/mysql"
+	"github.com/kr/pretty"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
+
+var dsn, templateDSN string
+var db *sql.DB
+
+func TestMain(m *testing.M) {
+	envDSN := os.Getenv("TEST_DSN")
+	if envDSN == "" {
+		log.Fatal().Msg("TEST_DSN env var is empty")
+	}
+
+	cfg, err := mysql.ParseDSN(envDSN)
+	if err != nil {
+		log.Fatal().Msgf("Cannot parse TEST_DSN: %s", err)
+	}
+	cfg.AllowNativePasswords = true
+	cfg.MultiStatements = true
+	dsn = cfg.FormatDSN()
+
+	templateDSN := fmt.Sprintf("%%s:%%s@%s(%s)/?autocommit=0", cfg.Net, cfg.Addr)
+	log.Printf("Test DSN: %q", dsn)
+	log.Printf("Template DSN: %q", templateDSN)
+
+	db, err = sql.Open("mysql", dsn)
+	if err != nil {
+		log.Fatal().Msgf("Cannot connect to the DB: %s", err)
+	}
+
+	if err = db.Ping(); err != nil {
+		log.Fatal().Msgf("Cannot ping the DB: %s", err)
+	}
+
+	os.Exit(m.Run())
+}
 
 func TestGetGrantsCombinations(t *testing.T) {
 	grants := []string{"SUPER", "INSERT", "UPDATE"}
@@ -111,6 +151,95 @@ func TestReadSlowLog(t *testing.T) {
 	tu.Equals(t, len(tc), 39)
 }
 
-//func TestSandbox(t *testing.T) {
-//	startSandbox()
-//}
+func TestTestFunc(t *testing.T) {
+	testCases := []*tester.TestingCase{
+		&tester.TestingCase{
+			Database:         "",
+			Query:            "DROP DATABASE testdb",
+			Fingerprint:      "",
+			MinimumGrants:    []string{"DROP"},
+			LastTestedGrants: []string{"DROP"},
+			NotAllowed:       false,
+			Error:            &mysql.MySQLError{Number: 0x3f0, Message: "Can't drop database 'testdb'; database doesn't exist"},
+			InvalidQuery:     false,
+		},
+		&tester.TestingCase{
+			Query: "INSERT INTO pt_osc.t (id, c) VALUES ('502', 'new row 1530033539.17197');",
+		},
+		&tester.TestingCase{
+			Query: "DELETE FROM pt_osc.t WHERE id='226';",
+		},
+		&tester.TestingCase{
+			Query: "SELECT /*!40001 SQL_NO_CACHE */ `id` FROM `pt_osc`.`t` FORCE INDEX (`PRIMARY`) WHERE `id` IS NOT NULL ORDER BY `id` LIMIT 1 /*key_len*/;",
+		},
+	}
+	grants := []string{"SELECT", "INSERT", "UPDATE", "DELETE"}
+	stopChan := make(chan bool)
+	maxDepth := 2
+
+	results, invalidQueries := test(testCases, db, templateDSN, grants, maxDepth, stopChan)
+	pretty.Println(results)
+	pretty.Println(invalidQueries)
+}
+
+func TestFuncWithSandbox(t *testing.T) {
+	zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	sandboxDir, err := ioutil.TempDir("", "example")
+	if err != nil {
+		t.FailNow()
+	}
+	log.Printf("Using temp dir: %s", sandboxDir)
+	port := 8112
+	baseDir := "/home/karl/mysql/my-8.0"
+
+	if envPort := os.Getenv("EXTERNAL_SANDBOX_PORT"); envPort != "" {
+		port, err = strconv.Atoi(envPort)
+		log.Printf("Using external sandbox instance at port %d", port)
+	} else {
+		if envBaseDir := os.Getenv("MYSQL_BASE_DIR"); envBaseDir != "" {
+			baseDir = envBaseDir
+		}
+		log.Printf("Using internal sandbox instance at port %d, using binaries at %q", port, baseDir)
+		startSandbox(baseDir, sandboxDir, port)
+	}
+
+	protocol := "tcp"
+	dsn := fmt.Sprintf("root:msandbox@tcp(127.0.0.1:%d)/", port)
+	templateDSN := fmt.Sprintf("%%s:%%s@%s(127.0.0.1:%d)/", protocol, port)
+
+	db, err := sql.Open("mysql", dsn)
+	if err != nil {
+		log.Printf("Cannot connect to %q: %s", dsn, err)
+		t.FailNow()
+	}
+
+	testCases := []*tester.TestingCase{
+		&tester.TestingCase{
+			Database:         "",
+			Query:            "DROP DATABASE testdb",
+			Fingerprint:      "",
+			MinimumGrants:    []string{"DROP"},
+			LastTestedGrants: []string{"DROP"},
+			NotAllowed:       false,
+			Error:            &mysql.MySQLError{Number: 0x3f0, Message: "Can't drop database 'testdb'; database doesn't exist"},
+			InvalidQuery:     false,
+		},
+		&tester.TestingCase{
+			Query: "INSERT INTO pt_osc.t (id, c) VALUES ('502', 'new row 1530033539.17197');",
+		},
+		&tester.TestingCase{
+			Query: "DELETE FROM pt_osc.t WHERE id='226';",
+		},
+		&tester.TestingCase{
+			Query: "SELECT /*!40001 SQL_NO_CACHE */ `id` FROM `pt_osc`.`t` FORCE INDEX (`PRIMARY`) WHERE `id` IS NOT NULL ORDER BY `id` LIMIT 1 /*key_len*/;",
+		},
+	}
+	grants := []string{"SELECT", "INSERT", "UPDATE", "DELETE"}
+	stopChan := make(chan bool)
+	maxDepth := len(grants)
+
+	log.Info().Msg("----------------------------------------------------------------------------------------------------")
+	results, invalidQueries := test(testCases, db, templateDSN, grants, maxDepth, stopChan)
+	pretty.Println(results)
+	pretty.Println(invalidQueries)
+}

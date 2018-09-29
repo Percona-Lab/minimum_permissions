@@ -46,9 +46,9 @@ func TestDeploy(t *testing.T) {
 		MorePorts:         nil,
 		Prompt:            "",
 		DbUser:            "msandbox",
-		RplUser:           "",
+		RplUser:           "rsandbox",
 		DbPassword:        "msandbox",
-		RplPassword:       "",
+		RplPassword:       "msandbox",
 		RemoteAccess:      "127.%",
 		BindAddress:       "127.0.0.1",
 		CustomMysqld:      "",
@@ -94,7 +94,6 @@ func TestDeploy(t *testing.T) {
 		t.Fatalf("Cannot ping the sandbox: %s", err)
 	}
 
-	//query := "CREATE USER 'someuser'@'%' IDENTIFIED WITH mysql_native_password BY 'somepass'"
 	query := "CREATE USER 'someuser'@'%' IDENTIFIED BY 'somepass'"
 	_, err = conn.Exec(query)
 	if err != nil {
@@ -104,6 +103,7 @@ func TestDeploy(t *testing.T) {
 	_, err = conn.Exec(query)
 
 	conn.Close()
+
 	stopCmd := path.Join(os.TempDir(), "sandbox", "stop")
 	cmd := exec.Command(stopCmd)
 	err = cmd.Run()

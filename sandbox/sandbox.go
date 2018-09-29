@@ -71,6 +71,7 @@ var (
 	v570, _  = version.NewVersion("5.7.0")
 	v576, _  = version.NewVersion("5.7.6")
 	v800, _  = version.NewVersion("8.0.0")
+	v803, _  = version.NewVersion("8.0.3")
 	v804, _  = version.NewVersion("8.0.4")
 	v8011, _ = version.NewVersion("8.0.11")
 )
@@ -94,6 +95,9 @@ func CreateSingleSandbox(sdef SandboxDef) (err error) {
 
 	if sdef.Prompt == "" {
 		sdef.Prompt = "mysql"
+	}
+	if sdef.RemoteAccess == "" {
+		sdef.RemoteAccess = "%"
 	}
 
 	datadir := path.Join(sdef.SandboxDir, "data")
@@ -125,13 +129,15 @@ func CreateSingleSandbox(sdef SandboxDef) (err error) {
 			return fmt.Errorf("Cannot find executable for %s: %s", custom_mysqld, err)
 		}
 	}
-	//if !mysqldVersion.LessThan(v804) {
-	//	log.Debug().Msg("Using MySQL 8.0.4. Setting default_authentication_plugin=mysql_native_password")
-	//	if sdef.NativeAuthPlugin == true {
-	//		sdef.InitOptions = append(sdef.InitOptions, "--default_authentication_plugin=mysql_native_password")
-	//		sdef.MyCnfOptions = append(sdef.MyCnfOptions, "default_authentication_plugin=mysql_native_password")
-	//	}
-	//}
+
+	if !mysqldVersion.LessThan(v803) {
+		log.Debug().Msg("Using MySQL 8.0.4. Setting default_authentication_plugin=mysql_native_password")
+		if sdef.NativeAuthPlugin == true {
+			sdef.InitOptions = append(sdef.InitOptions, "--default_authentication_plugin=mysql_native_password")
+			sdef.MyCnfOptions = append(sdef.MyCnfOptions, "default_authentication_plugin=mysql_native_password")
+		}
+	}
+
 	if !mysqldVersion.LessThan(v8011) {
 		log.Debug().Msg("MySQL version is 8.0.11+")
 		if sdef.DisableMysqlX {
@@ -312,6 +318,7 @@ func CreateSingleSandbox(sdef SandboxDef) (err error) {
 	}
 
 	log.Info().Msg("Sandbox started")
+	time.Sleep(10 * time.Second)
 	return nil
 }
 

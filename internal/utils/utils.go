@@ -36,7 +36,7 @@ func ExpandHomeDir(path string) string {
 	dir := usr.HomeDir
 
 	if len(path) > 1 && path[:2] == "~/" {
-		path = filepath.Join(dir, path[2:])
+		path = filepath.Join(dir, path[1:])
 	}
 	return path
 }
