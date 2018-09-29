@@ -1,4 +1,4 @@
-# minimum_permissions
+# MySQL Minimum Permissions tool
 Get the minimum set of permissions needed to run a particular query
 Many times at Percona we found that a big number of MySQL instances running with users having too many permissions they
 don't need. In general, many persons just do `GRANT ALL on *.* to 'user'@'host'`.
