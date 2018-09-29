@@ -31,7 +31,7 @@ Since this program runs queries that could modify, alter or delete data, it cann
 instance for security reasons. Because of that, the program needs to know the location of the MySQL binaries and it will
 start its own MySQL sandbox instance in a temporary directory.
 #### Example 
-I have this directories having different MySQL flavors, at `~/mysql`:  
+I have these directories having different MySQL flavors, at `~/mysql`:  
 ```
 ├── mdb-10.1
 ├── mdb-10.2
