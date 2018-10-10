@@ -42,13 +42,13 @@ var (
 	mysqlBaseDir       = app.Flag("mysql-base-dir", "Path to the MySQL base directory (parent of bin/)").Required().String()
 	maxDepth           = app.Flag("max-depth", "Maximum number of permissions to try").Default("10").Int()
 	prepareFile        = app.Flag("prepare-file", "File with queries to run before starting").String()
-	testStatement      = app.Flag("test-statement", "Query to test").Strings()
+	testStatement      = app.Flag("test-statement", "Query to test").Short('t').Strings()
 	noTrimLongQueries  = app.Flag("no-trim-long-queries", "Do not trim long queries").Bool()
 	keepSandbox        = app.Flag("keep-sandbox", "Do not stop/remove the sandbox after finishing").Bool()
 	slowLog            = app.Flag("slow-log", "Test queries from this slow log file").String()
-	inputFile          = app.Flag("input-file", "Plain text file with input queries. Queries in this file must end with a ;").String()
+	inputFile          = app.Flag("input-file", "Plain text file with input queries. Queries in this file must end with a ;").Short('i').String()
 	trimQuerySize      = app.Flag("trim-query-size", "Trim queries longer than trim-query-size").Default("100").Int()
-	showInvalidQueries = app.Flag("show-invalid-queries", "Show invalid queries").Bool()
+	showInvalidQueries = app.Flag("hide-invalid-queries", "Don't show invalid queries in the final report").Bool()
 
 	showVersion = app.Flag("version", "Show version and exit").Bool()
 	debug       = app.Flag("debug", "Debug mode").Bool()
@@ -262,7 +262,7 @@ func buildTestCasesList(testStatement []string, slowLog, plainFile string) ([]*t
 
 	if plainFile != "" {
 		log.Info().Msgf("Adding queries from plain file: %q", plainFile)
-		tc, err := readSlowLog(plainFile)
+		tc, err := readFlatFile(plainFile)
 		if err != nil {
 			return nil, errors.Wrapf(err, "Cannot read slow log from %q", *inputFile)
 		}
@@ -561,7 +561,7 @@ func readFlatFile(filename string) ([]*tester.TestingCase, error) {
 		tc = append(tc, &tester.TestingCase{Query: query})
 	}
 
-	return tc, errors.New("Not implemented yet")
+	return tc, nil
 }
 
 func joinQueryLines(lines []string) []string {
