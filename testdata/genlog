@@ -1,0 +1,27 @@
+/home/karl/mysql/my-5.7/bin/mysqld, Version: 5.7.22-log (MySQL Community Server (GPL)). started with:
+Tcp port: 12345  Unix socket: /tmp/12345/mysql_sandbox12345.sock
+Time                 Id Command    Argument
+2018-10-14T13:37:51.412899Z	    2 Connect	msandbox@localhost on  using Socket
+2018-10-14T13:37:51.413219Z	    2 Quit	
+2018-10-14T13:37:51.516671Z	    3 Connect	msandbox@localhost on  using Socket
+2018-10-14T13:37:51.533803Z	    3 Query	select @@version_comment limit 1
+2018-10-14T13:37:51.535292Z	    3 Query	SHOW /*!40100 ENGINE*/ INNODB STATUS
+2018-10-14T13:37:51.535969Z	    3 Quit	
+2018-10-14T13:37:51.555259Z	    4 Connect	msandbox@localhost on  using Socket
+2018-10-14T13:37:51.555437Z	    4 Query	select @@version_comment limit 1
+2018-10-14T13:37:51.556080Z	    4 Query	SELECT DATABASE()
+2018-10-14T13:37:51.556282Z	    4 Init DB	mysql
+2018-10-14T13:37:51.556418Z	    4 Query	/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */
+2018-10-14T13:37:51.558002Z	    4 Query	DROP TABLE IF EXISTS `columns_priv`
+2018-10-14T13:37:51.558484Z	    4 Query	/*!40101 SET @saved_cs_client     = @@character_set_client */
+2018-10-14T13:37:51.558568Z	    4 Query	/*!40101 SET character_set_client = utf8 */
+2018-10-14T13:37:51.559628Z	    4 Query	CREATE TABLE `columns_priv` (
+  `Host` char(60) COLLATE utf8_bin NOT NULL DEFAULT '',
+  `Db` char(64) COLLATE utf8_bin NOT NULL DEFAULT '',
+  `User` char(32) COLLATE utf8_bin NOT NULL DEFAULT '',
+  `Table_name` char(64) COLLATE utf8_bin NOT NULL DEFAULT '',
+  `Column_name` char(64) COLLATE utf8_bin NOT NULL DEFAULT '',
+  `Timestamp` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `Column_priv` set('Select','Insert','Update','References') CHARACTER SET utf8 NOT NULL DEFAULT '',
+  PRIMARY KEY (`Host`,`Db`,`User`,`Table_name`,`Column_name`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_bin COMMENT='Column privileges'

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"database/sql"
 	"fmt"
 	"io/ioutil"
@@ -11,15 +10,15 @@ import (
 	"os/exec"
 	"os/signal"
 	"path"
+	"path/filepath"
 	"reflect"
 	"runtime"
 	"strings"
 
-	slo "github.com/percona/go-mysql/log"
-	"github.com/percona/go-mysql/query"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
+	"github.com/Percona-Lab/minimum_permissions/internal/qreader"
 	"github.com/Percona-Lab/minimum_permissions/internal/report"
 	"github.com/Percona-Lab/minimum_permissions/internal/tester"
 	"github.com/Percona-Lab/minimum_permissions/internal/utils"
@@ -27,7 +26,6 @@ import (
 	"github.com/alecthomas/kingpin"
 	_ "github.com/go-sql-driver/mysql"
 	version "github.com/hashicorp/go-version"
-	"github.com/percona/go-mysql/log/slow"
 	"github.com/pkg/errors"
 )
 
@@ -41,14 +39,15 @@ var (
 
 	mysqlBaseDir       = app.Flag("mysql-base-dir", "Path to the MySQL base directory (parent of bin/)").Required().String()
 	maxDepth           = app.Flag("max-depth", "Maximum number of permissions to try").Default("10").Int()
-	prepareFile        = app.Flag("prepare-file", "File with queries to run before starting").String()
-	testStatement      = app.Flag("test-statement", "Query to test").Short('t').Strings()
 	noTrimLongQueries  = app.Flag("no-trim-long-queries", "Do not trim long queries").Bool()
-	keepSandbox        = app.Flag("keep-sandbox", "Do not stop/remove the sandbox after finishing").Bool()
-	slowLog            = app.Flag("slow-log", "Test queries from this slow log file").String()
-	inputFile          = app.Flag("input-file", "Plain text file with input queries. Queries in this file must end with a ;").Short('i').String()
 	trimQuerySize      = app.Flag("trim-query-size", "Trim queries longer than trim-query-size").Default("100").Int()
-	showInvalidQueries = app.Flag("hide-invalid-queries", "Don't show invalid queries in the final report").Bool()
+	hideInvalidQueries = app.Flag("hide-invalid-queries", "Don't show invalid queries in the final report").Bool()
+	keepSandbox        = app.Flag("keep-sandbox", "Do not stop/remove the sandbox after finishing").Bool()
+
+	query     = app.Flag("query", "Query to test. Can be specified multiple times").Short('q').Strings()
+	inputFile = app.Flag("input-file", "Load queries from plain text file. Queries in this file must end with a ; and can have multiple lines").Short('i').String()
+	slowLog   = app.Flag("slow-log", "Load queries from slow log file").Short('s').String()
+	genLog    = app.Flag("gen-log", "Load queries from genlog file").Short('g').String()
 
 	showVersion = app.Flag("version", "Show version and exit").Bool()
 	debug       = app.Flag("debug", "Debug mode").Bool()
@@ -76,11 +75,6 @@ type testResults struct {
 type resultGroups map[string][]string
 
 func main() {
-	// This will store a list of functions to execute before existing the program
-	// They must be executed in reverse order
-	cleanupActions := []*cleanupAction{}
-	defer runCleanupActions(&cleanupActions)
-
 	// Enable -h to show help
 	app.HelpFlag.Short('h')
 
@@ -99,7 +93,18 @@ func main() {
 		log.Fatal().Msg(err.Error())
 		app.Usage(os.Args[1:])
 	}
+
+	// This will store a list of functions to execute before existing the program
+	// They must be executed in reverse order
+	cleanupActions := []*cleanupAction{}
+	defer runCleanupActions(&cleanupActions)
+
 	*mysqlBaseDir = utils.ExpandHomeDir(*mysqlBaseDir)
+	if err := verifyBaseDir(*mysqlBaseDir); err != nil {
+		log.Fatal().Msgf("MySQL binaries not found in %q", *mysqlBaseDir)
+	}
+
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	if *quiet {
@@ -110,7 +115,7 @@ func main() {
 	}
 
 	log.Info().Msg("Building the test cases list")
-	testCases, err := buildTestCasesList(*testStatement, *slowLog, *inputFile)
+	testCases, err := buildTestCasesList(*query, *slowLog, *inputFile, *genLog)
 	if err != nil {
 		log.Fatal().Msgf("Cannot build the test cases list: %s", err)
 	}
@@ -145,7 +150,10 @@ func main() {
 	// Start the sandbox
 	log.Info().Msgf("Sandbox dir: %s", sandboxDir)
 	log.Info().Msg("Starting the sandbox")
-	startSandbox(*mysqlBaseDir, sandboxDir, port)
+	if err := startSandbox(*mysqlBaseDir, sandboxDir, port); err != nil {
+		log.Fatal().Msgf("Cannot start the sandbox: %s", err)
+	}
+
 	if !*keepSandbox {
 		cleanupActions = append(cleanupActions, &cleanupAction{Func: stopSandbox, Args: []interface{}{sandboxDir}})
 	}
@@ -178,13 +186,6 @@ func main() {
 	templateDSN := getTemplateDSN(host, port, randomDB)
 	log.Debug().Msgf("Template DSN used for client connections: %q", templateDSN)
 
-	if *prepareFile != "" {
-		log.Info().Msgf("Running prepare file %q", *prepareFile)
-		if err = prepare(db, *prepareFile); err != nil {
-			log.Fatal().Msgf("Cannot prepare the environment: %s", err.Error())
-		}
-	}
-
 	grants, err := getAllGrants(db)
 	if err != nil {
 		log.Fatal().Msgf("Cannot get grants list: %s", err)
@@ -215,10 +216,9 @@ func main() {
 	// if terminal.IsTerminal(int(os.Stdout.Fd())) && !*verbose {
 	// 	s.Stop()
 	// }
-	if *showInvalidQueries || *debug {
+	if !*hideInvalidQueries || *debug {
 		report.PrintInvalidQueries(invalidQueries, os.Stdout)
-		fmt.Println("")
-		fmt.Println("")
+		fmt.Println("\n")
 	}
 
 	if !*noTrimLongQueries {
@@ -241,30 +241,39 @@ func dropTempDB(args []interface{}) error {
 	return err
 }
 
-func buildTestCasesList(testStatement []string, slowLog, plainFile string) ([]*tester.TestingCase, error) {
+func buildTestCasesList(query []string, slowLog, plainFile, genLog string) ([]*tester.TestingCase, error) {
 	testCases := []*tester.TestingCase{}
 
-	if len(testStatement) > 0 {
-		log.Info().Msgf("Adding test statement to the queries list: %q", testStatement)
-		for _, query := range testStatement {
+	if len(query) > 0 {
+		log.Info().Msgf("Adding test statement to the queries list: %q", query)
+		for _, query := range query {
 			testCases = append(testCases, &tester.TestingCase{Query: query})
 		}
 	}
 
 	if slowLog != "" {
 		log.Info().Msgf("Adding queries from slow log file: %q", slowLog)
-		tc, err := readSlowLog(slowLog)
+		tc, err := qreader.ReadSlowLog(slowLog)
 		if err != nil {
-			return nil, errors.Wrapf(err, "Cannot read slow log from %q", slowLog)
+			return nil, errors.Wrapf(err, "Cannot read slow log file %q", slowLog)
 		}
 		testCases = append(testCases, tc...)
 	}
 
 	if plainFile != "" {
 		log.Info().Msgf("Adding queries from plain file: %q", plainFile)
-		tc, err := readFlatFile(plainFile)
+		tc, err := qreader.ReadPlainFile(plainFile)
 		if err != nil {
-			return nil, errors.Wrapf(err, "Cannot read slow log from %q", *inputFile)
+			return nil, errors.Wrapf(err, "Cannot read plain file %q", plainFile)
+		}
+		testCases = append(testCases, tc...)
+	}
+
+	if genLog != "" {
+		log.Info().Msgf("Adding queries from genlog file: %q", genLog)
+		tc, err := qreader.ReadGeneralLog(genLog)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Cannot read genlog file %q", genLog)
 		}
 		testCases = append(testCases, tc...)
 	}
@@ -511,85 +520,6 @@ func prepare(db *sql.DB, prepareFile string) error {
 	return nil
 }
 
-func readSlowLog(filename string) ([]*tester.TestingCase, error) {
-	filename = utils.ExpandHomeDir(filename)
-	file, err := os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-
-	slp := slow.NewSlowLogParser(file, slo.Options{Debug: false})
-
-	go slp.Start()
-
-	queryGroups := make(map[string]*slo.Event)
-
-	for e := range slp.EventChan() {
-		fp := query.Fingerprint(e.Query)
-		queryGroups[fp] = e
-	}
-
-	testCases := []*tester.TestingCase{}
-	for fingerprint, event := range queryGroups {
-		testCases = append(testCases, &tester.TestingCase{Database: event.Db, Query: event.Query, Fingerprint: fingerprint})
-	}
-	slp.Stop()
-
-	return testCases, nil
-}
-
-func readFlatFile(filename string) ([]*tester.TestingCase, error) {
-	filename = utils.ExpandHomeDir(filename)
-	file, err := os.Open(filename)
-	if err != nil {
-		return nil, errors.Wrapf(err, "Cannot open %s", filename)
-	}
-	defer file.Close()
-
-	tc := []*tester.TestingCase{}
-	lines := []string{}
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		fmt.Println(scanner.Text()) // token in unicode-char
-		lines = append(lines, scanner.Text())
-	}
-
-	queries := joinQueryLines(lines)
-
-	for _, query := range queries {
-		tc = append(tc, &tester.TestingCase{Query: query})
-	}
-
-	return tc, nil
-}
-
-func joinQueryLines(lines []string) []string {
-	inQuery := false
-	joined := []string{}
-	queryString := ""
-	separator := ""
-
-	for _, line := range lines {
-		if !inQuery {
-			inQuery = true
-		}
-		if inQuery {
-			queryString += separator + line
-			separator = "\n"
-			if !strings.HasSuffix(strings.TrimSpace(line), ";") {
-				continue
-			}
-			inQuery = false
-			separator = ""
-			joined = append(joined, queryString)
-			queryString = ""
-			continue
-		}
-		joined = append(joined, line)
-	}
-	return joined
-}
 func getDBConnection(host, user, password string, port int) (*sql.DB, error) {
 	protocol, hostPort := getProtocolAndHost(host, port)
 	dsn := fmt.Sprintf("%s:%s@%s(%s)/", user, password, protocol, hostPort)
@@ -638,12 +568,24 @@ func validGrants(db *sql.DB) (bool, error) {
 	return false, nil
 }
 
+func verifyBaseDir(dir string) error {
+	mysqlBin := filepath.Join(dir, "bin", "mysqld")
+	fi, err := os.Stat(mysqlBin)
+	if err != nil {
+		return err
+	}
+	if fi.IsDir() {
+		return fmt.Errorf("Invalid mysql binaries path")
+	}
+	return nil
+}
+
 func removeSandboxDir(args []interface{}) error {
 	log.Info().Msgf("Removing sandbox dir %s", args[0].(string))
 	return os.RemoveAll(args[0].(string))
 }
 
-func startSandbox(baseDir, sandboxDir string, port int) {
+func startSandbox(baseDir, sandboxDir string, port int) error {
 	sb := sandbox.SandboxDef{
 		DirName:           sandboxDirName,
 		SBType:            "single",
@@ -691,8 +633,10 @@ func startSandbox(baseDir, sandboxDir string, port int) {
 	}
 
 	log.Debug().Msgf("Creating the base directory for the sandbox %q", sandboxDir)
-	os.MkdirAll(sandboxDir, os.ModePerm)
-	sandbox.CreateSingleSandbox(sb)
+	if err := os.MkdirAll(sandboxDir, os.ModePerm); err != nil {
+		return errors.Wrapf(err, "cannot create temporary directory for the sandbox: %s", sandboxDir)
+	}
+	return sandbox.CreateSingleSandbox(sb)
 }
 
 func stopSandbox(args []interface{}) error {

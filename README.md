@@ -5,10 +5,10 @@ don't need. In general, many persons just do `GRANT ALL on *.* to 'user'@'host'`
 This is a big security risk not only to prevent external/unauthorized access to the database, but also lets that user to
 any any query, even those queries that deletes data o alter the database structure.
   
-This tool born when we were testing Percona Toolkit with MySQL 8.0.3 to prepare all the tools to run under the new MySQL
+This tool born when we were testing Percona Toolkit with MySQL 8.0.4-rc to prepare all the tools to run under the new MySQL
 version and we came across this scenario:
 
-One test of pt-table-sync, needs to check the output when running with an underprivileged user.
+One of pt-table-sync's test, needs to check the output when running with an underprivileged user.
 To do that, it creates a user and grants him these permissions:
 
 ```
@@ -19,19 +19,46 @@ and then, pt-table-checksum runs this query:
 ```
 SELECT `i`, COUNT(*) AS test_count FROM `issue_907`.`t` WHERE 1=1 GROUP BY i ORDER BY i LOCK IN SHARE MODE
 ```
-The problem here is that granting UPDATE and SHOW DATABASES is enough on MySQL 5.7 but it isn’t for MySQL 8.0.4-rc so, which 
+The problem here is that granting `UPDATE` and `SHOW DATABASES` is enough on MySQL 5.7 but it isn’t for MySQL 8.0.4-rc so, which 
 are the minimum permissions we need?
 
-What the tool does, is to get the list of all permissions and then it start setting the permissions individually, in groups of 2,
-in groups of 3, etc, using all combinations and runs the provides queries until it found the query execution was
-successful, grouping queries with their minimum required grants.
+## How it works?
 
-## Usage
+The tool builds a list of all possible all permissions and then creates a testing user granting him permissions individually, in groups of 2, in groups of 3, etc, using all combinations and runs the provided queries until it found the query execution was
+successful, grouping queries with their minimum required grants.
+  
+####  Example:
+ Suppose we are trying to get the minimum permissions for this query: `SHOW /*!40100 ENGINE*/ INNODB STATUS`.  
+ The program will start the sandbox, and it will create a testing user granting him  `SELECT` permission and it will run the query. If the query execution fails, it will grant `INSERT` to the testing user and so on until, for this particular example, when the testing user has been granted with `SELECT, PROCESS` the query execution will succed and we know that `SELECT, PROCESS` are the minimum permissions required to run the query.
+ 
+### When a query execution was successful?
+Since the program runs in a MySQL sandbox, most queries will fail. For example, if we try to execute a `SELECT field1 FROM foo.bar`, the `foo` database and the `bar` table won't exists but, if while trying to run the query we got one of these errors, it means that at least, the testing user has been granted with the minimum permissions requiered to run the query:
+
+|Error Code|Meaning|
+|-----|-----|
+|1049|Database doesn't exists|
+|1067|Invalid default value for '%s'|
+|1146|Table doesn't exists|
+|1213|Deadlock found when trying to get lock|
+|1215|Cannot add FK constraint|
+|1231|Invalid value for variable|
+|1049|Unknown database '%s'|
+|1067|Invalid default value for '%s'|
+|1146|Table '%s.%s' doesn't exist|
+|1213|Deadlock found when trying to get lock|
+|1215|Cannot add foreign key constraint|
+|1231|Variable '%s' can't be set to the value of '%s'|
+
+## Why do we need a MySQL sandbox?
+The program will start its own MySQL instance (sandbox) because it is dangerous to run a query on an existing database. Even if we try to enclose the queries in a transaction, there are statements that have implicit autocommit.  
+See MySQL reference: [13.3.3 Statements That Cause an Implicit Commit](https://dev.mysql.com/doc/refman/8.0/en/implicit-commit.html)
+
+## Usage examples
 Since this program runs queries that could modify, alter or delete data, it cannot be ran using an existing MySQL
 instance for security reasons. Because of that, the program needs to know the location of the MySQL binaries and it will
 start its own MySQL sandbox instance in a temporary directory.
-#### Example 
-I have these directories having different MySQL flavors, at `~/mysql`:  
+
+Lets assume we have these directories having different MySQL flavors and versions, at `~/mysql`:  
 ```
 ├── mdb-10.1
 ├── mdb-10.2
@@ -43,35 +70,40 @@ I have these directories having different MySQL flavors, at `~/mysql`:
 ├── ps-5.6
 └── ps-5.7
 ```
-Also I have a `slow.log` file I use for testing purposes in my home dir. To get the minimum permissions needed to run
-all the queries in that slow.log file, I need to run:
+#### Testing all queries from a slow.log file
 ```
 ./minimum_permissions --mysql-base-dir=~/mysql/my-8.0 --slow-log=~/slow.log
 
 ```
 
+#### Testing individual queries
+```
+./minimum_permissions --mysql-base-dir=~/mysql/my-8.0 -q='SELECT f1 FROM foo.bar' -q='SELECT f2 FROM db1.t1'
+
+```
+
+#### Testing queries from multiple sources at the same time
+```
+./minimum_permissions --mysql-base-dir=~/mysql/my-8.0 -q='SELECT f1 FROM foo.bar' -q='SELECT f2 FROM db1.t1' --slow-log=~/slow.log --input-file=~/queries.txt --gen-log=~/genlog
+
+```
 ### Flags
 |Flag|Description|Notes|
 |-----|-----|-----|
-|-h, --help|Show context-sensitive help (also try --help-long and --help-man)| |
-|--mysql-base-dir|Path to the MySQL base directory (parent of bin/)|Required|
-|--max-depth|Maximum number of simultaneous permissions to try|Default: 10|
-|--prepare-file|File with queries to run before starting| | 
-|--test-statement|Individual query to test| |
-|--no-trim-long-queries|Do not trim long queries|Default: false|
-|--keep-sandbox|Do not stop/remove the sandbox after finishing|Default: false|
-|--slow-log|Test queries from this slow log file| |
-|--input-file|Plain text file with input queries. Queries in this file must end with a `;`| |
-|--trim-query-size|Trim queries longer than trim-query-size|Default: 100|
-|--show-invalid-queries|Show invalid queries|Default: false|
-|--version|Show version and exit| | 
 |--debug|Show extra debug information|default: false |
+|-g, --gen-log|Load queries from genlog file|
+|-h, --help|Show context-sensitive help (also try --help-long and --help-man)| |
+|--hide-invalid-queries|Do not include invalid queries in the report|Default: false|
+|-i, --input-file|Load queries from plain text file. Queries in this file must end with a ; and can have multiple lines| |
+|--keep-sandbox|Do not stop/remove the sandbox after finishing|Default: false|
+|--max-depth|Maximum number of simultaneous permissions to try|Default: 10|
+|--mysql-base-dir|Path to the MySQL base directory (parent of bin/)|Required|
+|--no-trim-long-queries|Do not trim long queries|Default: false|
+|-q, --query|Individual query to test. Can be specified multiple times| |
 |--quiet|Don't show info level notificacions and progress|Default: false|
-
-### Testing one query
-```
-minimum_permissions --mysql-base-dir=~/mysql/my-8.0 --test-statement='SELECT i, COUNT(*) AS test_count FROM issue_907.t WHERE 1=1 GROUP BY i ORDER BY i LOCK IN SHARE MODE'
-```
+|-s, --slow-log|Load queries from slow log file| |
+|--trim-query-size|Trim queries longer than trim-query-size|Default: 100|
+|--version|Show version and exit| |
 
 ## Output
 The output will be something like this:
@@ -413,3 +445,13 @@ Grants : UPDATE
 UPDATE mysql.proc SET created='2012-06-05 00:00:00', modified='2012-06-05 00:00:00'
 
 ```
+
+# TODO
+- [ ] RDS support
+
+## Authors
+- **Carlos Salguero** - Initial work
+
+## Acknowledgments
+- **Alexander Rubin** - Specs review
+- **Roel Van de Paar** - Specs review, sandbox specs, testing
