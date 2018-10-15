@@ -594,7 +594,7 @@ func startSandbox(baseDir, sandboxDir string, port int) error {
 		Version:           "5.7.21",
 		Basedir:           baseDir,
 		SandboxDir:        sandboxDir,
-		LoadGrants:        true,
+		LoadGrants:        false,
 		SkipReportHost:    false,
 		SkipReportPort:    false,
 		SkipStart:         false,

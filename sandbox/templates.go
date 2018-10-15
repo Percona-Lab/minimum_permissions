@@ -442,7 +442,7 @@ then
 	[ -n "$VERBOSE_SQL" ] && echo "$SBDIR/$SOURCE_SCRIPT not found"
 	exit 0
 fi
-# echo "$MYSQL -u root -t $VERBOSE_SQL < $SBDIR/$SOURCE_SCRIPT"
+echo "$MYSQL -u root -t $VERBOSE_SQL < $SBDIR/$SOURCE_SCRIPT"
 $MYSQL -u root -t $VERBOSE_SQL < $SBDIR/$SOURCE_SCRIPT
 `
 	grants_template5x string = `
@@ -473,7 +473,7 @@ set password='{{.DbPassword}}';
 create user '{{.DbUser}}'@'{{.RemoteAccess}}' identified by '{{.DbPassword}}';
 grant all on *.* to {{.DbUser}}@'{{.RemoteAccess}}' WITH GRANT OPTION;
 
-create user '{{.DbUser}}'@'localhost' identified by '{{.DbPassword}}';
+-- create user '{{.DbUser}}'@'localhost' identified by '{{.DbPassword}}';
 grant all on *.* to {{.DbUser}}@'localhost' WITH GRANT OPTION;
 
 create user 'msandbox_rw'@'localhost' identified by '{{.DbPassword}}';
@@ -510,14 +510,14 @@ GRANT SELECT,EXECUTE ON *.* TO R_READ_ONLY;
 GRANT REPLICATION SLAVE ON *.* TO R_REPLICATION;
 
 CREATE USER '{{.DbUser}}'@'{{.RemoteAccess}}' IDENTIFIED BY '{{.DbPassword}}';
-CREATE USER '{{.DbUser}}'@'localhost' IDENTIFIED BY '{{.DbPassword}}';
+-- CREATE USER '{{.DbUser}}'@'localhost' IDENTIFIED BY '{{.DbPassword}}';
 -- CREATE USER '{{.DbUser}}'@'{{.RemoteAccess}}' IDENTIFIED WITH mysql_native_password BY '{{.DbPassword}}';
 -- CREATE USER '{{.DbUser}}'@'localhost' IDENTIFIED WITH mysql_native_password BY '{{.DbPassword}}';
 
-GRANT R_DO_IT_ALL TO '{{.DbUser}}'@'{{.RemoteAccess}}' WITH GRANT OPTION;
+GRANT R_DO_IT_ALL TO '{{.DbUser}}'@'{{.RemoteAccess}}';
 SET DEFAULT ROLE R_DO_IT_ALL TO '{{.DbUser}}'@'{{.RemoteAccess}}';
 
-GRANT R_DO_IT_ALL to {{.DbUser}}@'localhost' WITH GRANT OPTION;
+GRANT R_DO_IT_ALL to '{{.DbUser}}'@'localhost';
 SET DEFAULT ROLE R_DO_IT_ALL TO '{{.DbUser}}'@'localhost';
 
 CREATE USER 'msandbox_rw'@'localhost' IDENTIFIED WITH mysql_native_password BY '{{.DbPassword}}';
