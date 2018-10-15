@@ -1,0 +1,8 @@
+Changelog for Percona MySQL Minimum Permissions Tool
+
+v0.1.15 released 2018-10-15
+
+- Fixed MySQL 8 sandbox
+- Fixed plain text file reader
+- Added genlog parser
+- Improved command line arguments 

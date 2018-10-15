@@ -510,7 +510,10 @@ GRANT SELECT,EXECUTE ON *.* TO R_READ_ONLY;
 GRANT REPLICATION SLAVE ON *.* TO R_REPLICATION;
 
 CREATE USER '{{.DbUser}}'@'{{.RemoteAccess}}' IDENTIFIED BY '{{.DbPassword}}';
--- CREATE USER '{{.DbUser}}'@'localhost' IDENTIFIED BY '{{.DbPassword}}';
+/* 
+-- Invetigate why if we run these queries on MySQL, the sandbox crashes
+-- 
+CREATE USER '{{.DbUser}}'@'localhost' IDENTIFIED BY '{{.DbPassword}}';
 -- CREATE USER '{{.DbUser}}'@'{{.RemoteAccess}}' IDENTIFIED WITH mysql_native_password BY '{{.DbPassword}}';
 -- CREATE USER '{{.DbUser}}'@'localhost' IDENTIFIED WITH mysql_native_password BY '{{.DbPassword}}';
 
@@ -540,7 +543,7 @@ SET DEFAULT ROLE R_READ_ONLY TO 'msandbox_ro'@'localhost';
 
 GRANT R_REPLICATION TO '{{.RplUser}}'@'{{.RemoteAccess}}';
 SET DEFAULT ROLE R_REPLICATION TO '{{.RplUser}}'@'{{.RemoteAccess}}';
-
+*/
 CREATE SCHEMA IF NOT EXISTS TEST;
 `
 

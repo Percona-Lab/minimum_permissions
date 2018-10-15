@@ -14,9 +14,12 @@ import (
 	"reflect"
 	"runtime"
 	"strings"
+	"time"
 
+	"github.com/briandowns/spinner"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/Percona-Lab/minimum_permissions/internal/qreader"
 	"github.com/Percona-Lab/minimum_permissions/internal/report"
@@ -104,8 +107,9 @@ func main() {
 		log.Fatal().Msgf("MySQL binaries not found in %q", *mysqlBaseDir)
 	}
 
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
-
+	if terminal.IsTerminal(int(os.Stdout.Fd())) {
+		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+	}
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	if *quiet {
 		zerolog.SetGlobalLevel(zerolog.ErrorLevel)
@@ -194,11 +198,12 @@ func main() {
 
 	// Start the spinner only if running in a terminal and if verbose has not been
 	// specified, otherwise, the spinner will mess the output
-	//s := spinner.New(spinner.CharSets[0], 100*time.Millisecond)
-	//if terminal.IsTerminal(int(os.Stdout.Fd())) && !*verbose {
-	//	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
-	//	s.Start()
-	//}
+	s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
+	if terminal.IsTerminal(int(os.Stdout.Fd())) {
+		if !*quiet && !*debug {
+			s.Start()
+		}
+	}
 
 	stopChan := make(chan bool)
 
@@ -213,9 +218,9 @@ func main() {
 
 	results, invalidQueries := test(testCases, db, templateDSN, grants, *maxDepth, stopChan, *quiet)
 
-	// if terminal.IsTerminal(int(os.Stdout.Fd())) && !*verbose {
-	// 	s.Stop()
-	// }
+	if terminal.IsTerminal(int(os.Stdout.Fd())) && !*quiet && !*debug {
+		s.Stop()
+	}
 	if !*hideInvalidQueries || *debug {
 		report.PrintInvalidQueries(invalidQueries, os.Stdout)
 		fmt.Println("\n")
