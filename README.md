@@ -43,7 +43,6 @@ Since the program runs in a MySQL sandbox, most queries will fail. For example, 
 |1215|Cannot add FK constraint|
 |1231|Invalid value for variable|
 |1049|Unknown database '%s'|
-|1067|Invalid default value for '%s'|
 |1146|Table '%s.%s' doesn't exist|
 |1213|Deadlock found when trying to get lock|
 |1215|Cannot add foreign key constraint|
