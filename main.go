@@ -12,11 +12,13 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
 
 	"github.com/briandowns/spinner"
+	"github.com/datacharmer/dbdeployer/sandbox"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/ssh/terminal"
@@ -25,7 +27,6 @@ import (
 	"github.com/Percona-Lab/minimum_permissions/internal/report"
 	"github.com/Percona-Lab/minimum_permissions/internal/tester"
 	"github.com/Percona-Lab/minimum_permissions/internal/utils"
-	"github.com/Percona-Lab/minimum_permissions/sandbox"
 	"github.com/alecthomas/kingpin"
 	_ "github.com/go-sql-driver/mysql"
 	version "github.com/hashicorp/go-version"
@@ -143,7 +144,7 @@ func main() {
 	log.Info().Msgf("Found free open port: %d", port)
 
 	// Create the sandbox directory
-	sandboxDir, err := ioutil.TempDir("", "sandbox")
+	sandboxDir, err := ioutil.TempDir("", "min_perms_")
 	if err != nil {
 		log.Fatal().Msgf("Cannot create a temporary directory for the sandbox: %s", err)
 	}
@@ -151,15 +152,18 @@ func main() {
 		cleanupActions = append(cleanupActions, &cleanupAction{Func: removeSandboxDir, Args: []interface{}{sandboxDir}})
 	}
 
+	sandboxName := fmt.Sprintf("sandbox_%d", port)
 	// Start the sandbox
-	log.Info().Msgf("Sandbox dir: %s", sandboxDir)
+	log.Info().Msgf("Sandbox dir : %s", sandboxDir)
+	log.Info().Msgf("Sandbox name: %s", sandboxName)
 	log.Info().Msg("Starting the sandbox")
-	if err := startSandbox(*mysqlBaseDir, sandboxDir, port); err != nil {
+
+	if err := startSandbox(*mysqlBaseDir, sandboxDir, sandboxName, port); err != nil {
 		log.Fatal().Msgf("Cannot start the sandbox: %s", err)
 	}
 
 	if !*keepSandbox {
-		cleanupActions = append(cleanupActions, &cleanupAction{Func: stopSandbox, Args: []interface{}{sandboxDir}})
+		cleanupActions = append(cleanupActions, &cleanupAction{Func: stopSandbox, Args: []interface{}{sandboxDir, sandboxName}})
 	}
 
 	db, err := getDBConnection(host, user, password, port)
@@ -590,65 +594,63 @@ func removeSandboxDir(args []interface{}) error {
 	return os.RemoveAll(args[0].(string))
 }
 
-func startSandbox(baseDir, sandboxDir string, port int) error {
+func startSandbox(baseDir, sandboxDir, sandboxName string, port int) error {
+	ver, err := getMySQLVersion(baseDir)
+	if err != nil {
+		return errors.Wrapf(err, "cannot get MySQL version from base dir: %s", baseDir)
+	}
 	sb := sandbox.SandboxDef{
-		DirName:           sandboxDirName,
-		SBType:            "single",
-		Multi:             false,
-		NodeNum:           1,
-		Version:           "5.7.21",
-		Basedir:           baseDir,
-		SandboxDir:        sandboxDir,
-		LoadGrants:        false,
-		SkipReportHost:    false,
-		SkipReportPort:    false,
-		SkipStart:         false,
-		InstalledPorts:    []int{},
-		Port:              port,
-		MysqlXPort:        0,
-		UserPort:          0,
-		BasePort:          0,
-		MorePorts:         nil,
-		Prompt:            "",
-		DbUser:            "root",
-		RplUser:           "",
-		DbPassword:        "msandbox",
-		RplPassword:       "",
-		RemoteAccess:      "",
-		BindAddress:       "127.0.0.1",
-		CustomMysqld:      "",
-		ServerId:          1,
-		ReplOptions:       "",
-		GtidOptions:       "",
-		SemiSyncOptions:   "",
-		InitOptions:       []string{},
-		MyCnfOptions:      []string{},
-		PreGrantsSql:      []string{},
-		PreGrantsSqlFile:  "",
-		PostGrantsSql:     []string{},
-		PostGrantsSqlFile: "",
-		MyCnfFile:         "",
-		NativeAuthPlugin:  true,
-		DisableMysqlX:     true,
-		KeepUuid:          true,
-		SinglePrimary:     true,
-		Force:             true,
-		ExposeDdTables:    false,
-		RunConcurrently:   false,
+		SandboxDir:       sandboxDir, // this should be /tmp on Linux
+		DirName:          sandboxName,
+		SBType:           "single",
+		LoadGrants:       true,
+		Version:          ver.String(),
+		Basedir:          baseDir,
+		Port:             port,
+		DbUser:           "msandbox",
+		DbPassword:       "msandbox",
+		RplUser:          "rsandbox",
+		RplPassword:      "rsandbox",
+		RemoteAccess:     "127.0.0.1",
+		BindAddress:      "127.0.0.1",
+		NativeAuthPlugin: true,
+		DisableMysqlX:    true,
+		KeepUuid:         true,
+		SinglePrimary:    true,
+		Force:            true,
 	}
 
 	log.Debug().Msgf("Creating the base directory for the sandbox %q", sandboxDir)
 	if err := os.MkdirAll(sandboxDir, os.ModePerm); err != nil {
 		return errors.Wrapf(err, "cannot create temporary directory for the sandbox: %s", sandboxDir)
 	}
-	return sandbox.CreateSingleSandbox(sb)
+	sandbox.CreateChildSandbox(sb)
+	return err
 }
 
 func stopSandbox(args []interface{}) error {
 	sandboxDir := args[0].(string)
-	stopCmd := path.Join(sandboxDir, "stop")
-	cmd := exec.Command(stopCmd)
-	log.Info().Msg("Stopping the sandbox")
-	log.Debug().Msgf("Sandbox stop command: %q", stopCmd)
-	return cmd.Run()
+	sandboxName := args[1].(string)
+	sandbox.RemoveSandbox(sandboxDir, sandboxName, false)
+	return nil
+}
+
+func getMySQLVersion(baseDir string) (*version.Version, error) {
+	mysqld := path.Join(baseDir, "bin", "mysqld")
+	cmd := exec.Command(mysqld, "--version")
+	log.Debug().Msgf("Trying to get MySQL from mysqld: %s --version", mysqld)
+
+	buf, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, err
+	}
+	re := regexp.MustCompile(`(?i)Ver (\d+\.\d+\.\d+)\s*`)
+	m := re.FindStringSubmatch(string(buf))
+	if len(m) < 2 {
+		return nil, fmt.Errorf("Cannot parse MySQL server version")
+	}
+
+	log.Debug().Msgf("Version found: %s", m[1])
+	v, err := version.NewVersion(m[1])
+	return v, err
 }
