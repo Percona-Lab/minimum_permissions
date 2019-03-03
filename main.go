@@ -37,31 +37,28 @@ type cleanupAction struct {
 	Args []interface{}
 }
 
+type cliOptions struct {
+	mysqlBaseDir       string
+	maxDepth           int
+	noTrimLongQueries  bool
+	trimQuerySize      int
+	hideInvalidQueries bool
+	keepSandbox        bool
+	query              []string
+	inputFile          string
+	slowLog            string
+	genLog             string
+	showVersion        bool
+	debug              bool
+	quiet              bool
+	host               string
+	port               int
+	user               string
+	password           string
+	sandboxDirname     string
+}
+
 var (
-	app = kingpin.New("mysql_random_data_loader", "MySQL Random Data Loader")
-
-	mysqlBaseDir       = app.Flag("mysql-base-dir", "Path to the MySQL base directory (parent of bin/)").Required().String()
-	maxDepth           = app.Flag("max-depth", "Maximum number of permissions to try").Default("10").Int()
-	noTrimLongQueries  = app.Flag("no-trim-long-queries", "Do not trim long queries").Bool()
-	trimQuerySize      = app.Flag("trim-query-size", "Trim queries longer than trim-query-size").Default("100").Int()
-	hideInvalidQueries = app.Flag("hide-invalid-queries", "Don't show invalid queries in the final report").Bool()
-	keepSandbox        = app.Flag("keep-sandbox", "Do not stop/remove the sandbox after finishing").Bool()
-
-	query     = app.Flag("query", "Query to test. Can be specified multiple times").Short('q').Strings()
-	inputFile = app.Flag("input-file", "Load queries from plain text file. Queries in this file must end with a ; and can have multiple lines").Short('i').String()
-	slowLog   = app.Flag("slow-log", "Load queries from slow log file").Short('s').String()
-	genLog    = app.Flag("gen-log", "Load queries from genlog file").Short('g').String()
-
-	showVersion = app.Flag("version", "Show version and exit").Bool()
-	debug       = app.Flag("debug", "Debug mode").Bool()
-	quiet       = app.Flag("quiet", "Don't show info level notificacions and progress").Bool()
-
-	host           = "127.0.0.1"
-	port           = 0
-	user           = "root"
-	password       = "msandbox"
-	sandboxDirName = "sandbox"
-
 	Version   = "0.0.0."
 	Commit    = "<sha1>"
 	Branch    = "branch-name"
@@ -79,7 +76,6 @@ type resultGroups map[string][]string
 
 func main() {
 	// Enable -h to show help
-	app.HelpFlag.Short('h')
 
 	_, err := app.Parse(os.Args[1:])
 
@@ -651,4 +647,39 @@ func stopSandbox(args []interface{}) error {
 	log.Info().Msg("Stopping the sandbox")
 	log.Debug().Msgf("Sandbox stop command: %q", stopCmd)
 	return cmd.Run()
+}
+
+func processCliArgs(args []string) (cliOptions, error) {
+	opts := cliOptions{
+		query:    make([]string, 0),
+		host:     "127.0.0.1",
+		port:     0,
+		user:     "root",
+		password: "msandbox",
+	}
+	app := kingpin.New("mysql_random_data_loader", "MySQL Random Data Loader")
+	app.HelpFlag.Short('h')
+
+	app.Flag("mysql-base-dir", "Path to the MySQL base directory").Required().StringVar(&opts.mysqlBaseDir)
+	app.Flag("max-depth", "Maximum number of permissions to try").Default("10").IntVar(&opts.maxDepth)
+	app.Flag("no-trim-long-queries", "Do not trim long queries").BoolVar(&opts.noTrimLongQueries)
+	app.Flag("trim-query-size", "Trim queries longer than trim-query-size").Default("100").IntVar(&opts.trimQuerySize)
+	app.Flag("hide-invalid-queries", "Don't show invalid queries in the final report").BoolVar(&opts.hideInvalidQueries)
+	app.Flag("keep-sandbox", "Do not stop/remove the sandbox after finishing").BoolVar(&opts.keepSandbox)
+
+	app.Flag("query", "Query to test. Can be specified multiple times").Short('q').StringsVar(&opts.query)
+	app.Flag("input-file",
+		"Load queries from plain text file. Queries in this file must end with a ; and can have multiple lines").
+		Short('i').StringVar(&opts.inputFile)
+	app.Flag("slow-log", "Load queries from slow log file").Short('s').StringVar(&opts.slowLog)
+	app.Flag("gen-log", "Load queries from genlog file").Short('g').StringVar(&opts.genLog)
+
+	app.Flag("version", "Show version and exit").BoolVar(&opts.showVersion)
+	app.Flag("debug", "Debug mode").BoolVar(&opts.debug)
+	app.Flag("quiet", "Don't show info level notificacions and progress").BoolVar(&opts.quiet)
+
+	app.Flag("sandbox-dirname", "Directory name for the sandbox").Default("sandbox").StringVar(&opts.sandboxDirname)
+
+	_, err := app.Parse(args)
+	return opts, err
 }
