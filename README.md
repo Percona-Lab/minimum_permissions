@@ -454,3 +454,5 @@ UPDATE mysql.proc SET created='2012-06-05 00:00:00', modified='2012-06-05 00:00:
 ## Acknowledgments
 - **Alexander Rubin** - Specs review
 - **Roel Van de Paar** - Specs review, sandbox specs, testing
+- **[Giuseppe Maxia](https://github.com/datacharmer)** For the sanbox package from [dbdeployer](https://github.com/datacharmer/dbdeployer) and for all
+  the work making it possible to use the sandbox package from external projects like this one.

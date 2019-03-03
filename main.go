@@ -76,11 +76,9 @@ type testResults struct {
 type resultGroups map[string][]string
 
 func main() {
-	// Enable -h to show help
+	opts, err := processCliArgs(os.Args[1:])
 
-	_, err := app.Parse(os.Args[1:])
-
-	if *showVersion {
+	if opts.showVersion {
 		fmt.Printf("Version   : %s\n", Version)
 		fmt.Printf("Commit    : %s\n", Commit)
 		fmt.Printf("Branch    : %s\n", Branch)
@@ -91,7 +89,6 @@ func main() {
 
 	if err != nil {
 		log.Fatal().Msg(err.Error())
-		app.Usage(os.Args[1:])
 	}
 
 	// This will store a list of functions to execute before existing the program
@@ -99,24 +96,24 @@ func main() {
 	cleanupActions := []*cleanupAction{}
 	defer runCleanupActions(&cleanupActions)
 
-	*mysqlBaseDir = utils.ExpandHomeDir(*mysqlBaseDir)
-	if err := verifyBaseDir(*mysqlBaseDir); err != nil {
-		log.Fatal().Msgf("MySQL binaries not found in %q", *mysqlBaseDir)
+	opts.mysqlBaseDir = utils.ExpandHomeDir(opts.mysqlBaseDir)
+	if err := verifyBaseDir(opts.mysqlBaseDir); err != nil {
+		log.Fatal().Msgf("MySQL binaries not found in %q", opts.mysqlBaseDir)
 	}
 
 	if terminal.IsTerminal(int(os.Stdout.Fd())) {
 		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 	}
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
-	if *quiet {
+	if opts.quiet {
 		zerolog.SetGlobalLevel(zerolog.ErrorLevel)
 	}
-	if *debug {
+	if opts.debug {
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	}
 
 	log.Info().Msg("Building the test cases list")
-	testCases, err := buildTestCasesList(*query, *slowLog, *inputFile, *genLog)
+	testCases, err := buildTestCasesList(opts.query, opts.slowLog, opts.inputFile, opts.genLog)
 	if err != nil {
 		log.Fatal().Msgf("Cannot build the test cases list: %s", err)
 	}
@@ -131,9 +128,11 @@ func main() {
 		log.Debug().Msgf("%04d: %s", i, tc.Query)
 	}
 
-	// Find free open port for the sandbox
+	host := "127.0.0.1"
+	user := "root"
+	password := "msandbox"
 	log.Debug().Msg("Trying go get a free open port")
-	port, err = getFreePort()
+	port, err := getFreePort()
 	if err != nil {
 		log.Fatal().Msgf("Cannot find a free open port %s", err)
 	}
@@ -144,7 +143,7 @@ func main() {
 	if err != nil {
 		log.Fatal().Msgf("Cannot create a temporary directory for the sandbox: %s", err)
 	}
-	if !*keepSandbox {
+	if !opts.keepSandbox {
 		cleanupActions = append(cleanupActions, &cleanupAction{Func: removeSandboxDir, Args: []interface{}{sandboxDir}})
 	}
 
@@ -154,12 +153,13 @@ func main() {
 	log.Info().Msgf("Sandbox name: %s", sandboxName)
 	log.Info().Msg("Starting the sandbox")
 
-	if err := startSandbox(*mysqlBaseDir, sandboxDir, sandboxName, port); err != nil {
+	if err := startSandbox(opts.mysqlBaseDir, sandboxDir, sandboxName, port); err != nil {
 		log.Fatal().Msgf("Cannot start the sandbox: %s", err)
 	}
 
-	if !*keepSandbox {
-		cleanupActions = append(cleanupActions, &cleanupAction{Func: stopSandbox, Args: []interface{}{sandboxDir, sandboxName}})
+	if !opts.keepSandbox {
+		cleanupActions = append(cleanupActions,
+			&cleanupAction{Func: stopSandbox, Args: []interface{}{sandboxDir, sandboxName}})
 	}
 
 	db, err := getDBConnection(host, user, password, port)
@@ -200,7 +200,7 @@ func main() {
 	// specified, otherwise, the spinner will mess the output
 	s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
 	if terminal.IsTerminal(int(os.Stdout.Fd())) {
-		if !*quiet && !*debug {
+		if !opts.quiet && !opts.debug {
 			s.Start()
 		}
 	}
@@ -216,18 +216,18 @@ func main() {
 		fmt.Println("CTRL+C detected. Finishing ...")
 	}()
 
-	results, invalidQueries := test(testCases, db, templateDSN, grants, *maxDepth, stopChan, *quiet)
+	results, invalidQueries := test(testCases, db, templateDSN, grants, opts.maxDepth, stopChan, opts.quiet)
 
-	if terminal.IsTerminal(int(os.Stdout.Fd())) && !*quiet && !*debug {
+	if terminal.IsTerminal(int(os.Stdout.Fd())) && !opts.quiet && !opts.debug {
 		s.Stop()
 	}
-	if !*hideInvalidQueries || *debug {
+	if !opts.hideInvalidQueries || opts.debug {
 		report.PrintInvalidQueries(invalidQueries, os.Stdout)
 		fmt.Println("\n")
 	}
 
-	if !*noTrimLongQueries {
-		trimQueries(results, *trimQuerySize)
+	if !opts.noTrimLongQueries {
+		trimQueries(results, opts.trimQuerySize)
 	}
 
 	report.PrintReport(report.GroupResults(results), os.Stdout)
@@ -653,11 +653,7 @@ func getMySQLVersion(baseDir string) (*version.Version, error) {
 
 func processCliArgs(args []string) (cliOptions, error) {
 	opts := cliOptions{
-		query:    make([]string, 0),
-		host:     "127.0.0.1",
-		port:     0,
-		user:     "root",
-		password: "msandbox",
+		query: make([]string, 0),
 	}
 	app := kingpin.New("mysql_random_data_loader", "MySQL Random Data Loader")
 	app.HelpFlag.Short('h')
