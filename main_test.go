@@ -18,7 +18,6 @@ import (
 )
 
 var dsn, templateDSN string
-var db *sql.DB
 
 func TestMain(m *testing.M) {
 	envDSN := os.Getenv("TEST_DSN")
