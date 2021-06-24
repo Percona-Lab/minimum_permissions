@@ -8,13 +8,15 @@ import (
 	"sync"
 	"testing"
 
-	tu "github.com/Percona-Lab/pt-mysql-config-diff/testutils"
+	tu "github.com/Percona-Lab/minimum_permissions/internal/testutils"
 	_ "github.com/go-sql-driver/mysql"
 	mysql "github.com/go-sql-driver/mysql"
 )
 
-var dsn, templateDSN string
-var db *sql.DB
+var (
+	dsn, templateDSN string
+	db               *sql.DB
+)
 
 func TestMain(m *testing.M) {
 	envDSN := os.Getenv("TEST_DSN")
@@ -84,7 +86,7 @@ func TestTestQueries(t *testing.T) {
 		{Queries: queries, Grants: []string{"DELETE"}, OkCount: 0},           // #5
 	}
 
-	tu.LoadQueriesFromFile(t, db, "prep.sql")
+	tu.LoadQueriesFromFile(t, "prep.sql")
 	stopChan := make(chan bool)
 
 	for i, test := range expects {
@@ -122,7 +124,7 @@ func TestTestQuery(t *testing.T) {
 		{Query: "insert into d1.t values (2,3)", Grants: []string{"INSERT"}, OkCount: 0, InvalidQuery: true}, // #5
 	}
 
-	tu.LoadQueriesFromFile(t, db, "prep.sql")
+	tu.LoadQueriesFromFile(t, "prep.sql")
 
 	for i, test := range expects {
 		testCase := &TestingCase{Query: test.Query}

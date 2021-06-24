@@ -18,7 +18,7 @@ func TestReport(t *testing.T) {
 
           `
 	rg := map[string][]string{
-		"SELECT": []string{"SELECT a FROM t1", "SELECT b FROM t2"},
+		"SELECT": {"SELECT a FROM t1", "SELECT b FROM t2"},
 	}
 
 	buf := new(bytes.Buffer)

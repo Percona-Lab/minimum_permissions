@@ -15,14 +15,15 @@ import (
 	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/ssh/terminal"
 
+	"github.com/alecthomas/kingpin"
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/pkg/errors"
+
 	"github.com/Percona-Lab/minimum_permissions/internal/qreader"
 	"github.com/Percona-Lab/minimum_permissions/internal/report"
 	"github.com/Percona-Lab/minimum_permissions/internal/tester"
 	"github.com/Percona-Lab/minimum_permissions/internal/testsandbox"
 	"github.com/Percona-Lab/minimum_permissions/internal/utils"
-	"github.com/alecthomas/kingpin"
-	_ "github.com/go-sql-driver/mysql"
-	"github.com/pkg/errors"
 )
 
 type cliOptions struct {
@@ -84,15 +85,16 @@ func main() {
 	}
 
 	sandbox, err := testsandbox.New(opts.mysqlBaseDir)
-	if !opts.keepSandbox {
-		defer sandbox.RunCleanupActions()
-	}
 	if err != nil {
 		log.Fatal().Msgf("Cannot start the MySQL sandbox: %s", err)
 	}
 
+	if !opts.keepSandbox {
+		defer sandbox.RunCleanupActions()
+	}
+
 	if terminal.IsTerminal(int(os.Stdout.Fd())) {
-		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr}) //nolint
 	}
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	if opts.quiet {
@@ -105,15 +107,18 @@ func main() {
 	log.Info().Msg("Building the test cases list")
 	testCases, err := buildTestCasesList(opts.query, opts.slowLog, opts.inputFile, opts.genLog)
 	if err != nil {
-		log.Fatal().Msgf("Cannot build the test cases list: %s", err)
+		log.Error().Msgf("Cannot build the test cases list: %s", err)
+		return
 	}
 	if len(testCases) == 0 {
 		log.Error().Msg("Test cases list is empty.")
-		log.Fatal().Msg("Please use --slow-log and/or --input-file and/or --test-statement parameters")
+		log.Error().Msg("Please use --slow-log and/or --input-file and/or --test-statement parameters")
+		return
 	}
 	log.Info().Msgf("Total number of queries to test: %d", len(testCases))
 
 	log.Debug().Msg("Test cases:")
+
 	for i, tc := range testCases {
 		log.Debug().Msgf("%04d: %s", i, tc.Query)
 	}
@@ -121,7 +126,8 @@ func main() {
 	grants := sandbox.Grants()
 	// Start the spinner only if running in a terminal and if verbose has not been
 	// specified, otherwise, the spinner will mess the output
-	s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
+	s := spinner.New(spinner.CharSets[9], 100*time.Millisecond) //nolint
+
 	if terminal.IsTerminal(int(os.Stdout.Fd())) {
 		if !opts.quiet && !opts.debug {
 			s.Start()
@@ -136,10 +142,11 @@ func main() {
 	go func() {
 		<-c
 		close(stopChan)
-		fmt.Println("CTRL+C detected. Finishing ...")
+		log.Info().Msg("CTRL+C detected. Finishing ...")
 	}()
 
-	results, invalidQueries := test(testCases, sandbox.DB(), templateDSN, grants, opts.maxDepth, stopChan, opts.quiet)
+	results, invalidQueries := test(testCases, sandbox.DB(), sandbox.TemplateDSN(),
+		grants, opts.maxDepth, stopChan, opts.quiet)
 
 	if terminal.IsTerminal(int(os.Stdout.Fd())) && !opts.quiet && !opts.debug {
 		s.Stop()
@@ -147,7 +154,6 @@ func main() {
 
 	if !opts.hideInvalidQueries || opts.debug {
 		report.PrintInvalidQueries(invalidQueries, os.Stdout)
-		fmt.Println("\n")
 	}
 
 	if !opts.noTrimLongQueries {
@@ -162,6 +168,7 @@ func buildTestCasesList(query []string, slowLog, plainFile, genLog string) ([]*t
 
 	if len(query) > 0 {
 		log.Info().Msgf("Adding test statement to the queries list: %q", query)
+
 		for _, query := range query {
 			testCases = append(testCases, &tester.TestingCase{Query: query})
 		}
@@ -205,17 +212,18 @@ func test(testCases []*tester.TestingCase, db *sql.DB, templateDSN string, grant
 
 	totalQueries := len(testCases)
 	progress := ""
-	for n := 1; n < maxDepth && !stop; n++ {
-		// grantsCombinations is a slice of slices having all combinations in groups of n
-		// Example: n=2
-		// [
-		//   [SELECT, INSERT],
-		//   [SELECT, UPDATE],
-		//   ...
-		//   [DELETE, UPDATE],
-		//   ...
-		// ]
 
+	// grantsCombinations is a slice of slices having all combinations in groups of n
+	// Example: n=2
+	// [
+	//   [SELECT, INSERT],
+	//   [SELECT, UPDATE],
+	//   ...
+	//   [DELETE, UPDATE],
+	//   ...
+	// ]
+
+	for n := 1; n < maxDepth && !stop; n++ {
 		grantsCombinations := getGrantsCombinations(grants, n)
 
 		for j := 0; j < len(grantsCombinations); j++ {
@@ -224,6 +232,7 @@ func test(testCases []*tester.TestingCase, db *sql.DB, templateDSN string, grant
 			case <-stopChan:
 				fmt.Println("")
 				stop = true
+
 				continue
 			default:
 			}

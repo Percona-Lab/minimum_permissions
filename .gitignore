@@ -2,3 +2,4 @@ build/*
 vendor/*
 dist/*
 minimum_permissions
+bin/*

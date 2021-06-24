@@ -73,18 +73,28 @@ func New(mysqlBaseDir string) (*TestSandbox, error) {
 		return ts, errors.Wrap(err, "cannot start the sandbox")
 	}
 
-	ts.cleanupActions = append(ts.cleanupActions, &cleanupAction{Func: stopSandbox, Args: []interface{}{ts.workDir, ts.name}})
+	ts.templateDSN = fmt.Sprintf("%%s:%%s@%s(%s:%d)/%s?autocommit=0", "tcp", ts.host, ts.port, "test")
+
+	ts.cleanupActions = append(ts.cleanupActions, &cleanupAction{
+		Func: stopSandbox,
+		Args: []interface{}{ts.workDir, ts.name},
+	})
 
 	ts.db, err = getDBConnection(ts.host, ts.user, ts.password, ts.port)
 	if err != nil {
 		return ts, errors.Wrap(err, "cannot connect to the db")
 	}
-	ts.cleanupActions = append(ts.cleanupActions, &cleanupAction{Func: closeDB, Args: []interface{}{ts.db}})
+
+	ts.cleanupActions = append(ts.cleanupActions, &cleanupAction{
+		Func: closeDB,
+		Args: []interface{}{ts.db},
+	})
 
 	if v, e := validGrants(ts.db); !v || e != nil {
 		if e != nil {
 			return ts, errors.Wrap(err, "cannot check for valid grants")
 		}
+
 		return ts, errors.Wrap(err, "the user %q must have GRANT OPTION")
 	}
 
@@ -113,14 +123,20 @@ func (ts *TestSandbox) DB() *sql.DB {
 	return ts.db
 }
 
-// RunCleanupActions will execute all cleanup actions like drop temp dirs, close db connections, etc
+func (ts *TestSandbox) TemplateDSN() string {
+	return ts.templateDSN
+}
+
+// RunCleanupActions will execute all cleanup actions like drop temp dirs, close db connections, etc.
 func (ts *TestSandbox) RunCleanupActions() {
 	log.Info().Msg("Cleaning up")
-	log.Debug().Msgf("Cleanup actions list lenght: %d", len(ts.cleanupActions))
+	log.Debug().Msgf("Cleanup actions list length: %d", len(ts.cleanupActions))
+
 	for i := len(ts.cleanupActions) - 1; i >= 0; i-- {
 		action := (ts.cleanupActions)[i]
 		name := runtime.FuncForPC(reflect.ValueOf(action.Func).Pointer()).Name()
 		log.Debug().Msgf("Running cleanup action #%d - %s", i, name)
+
 		if err := action.Func(action.Args); err != nil {
 			log.Error().Msgf("Cannot run cleanup action %s #%d: %s", name, i, err)
 		}
@@ -132,7 +148,8 @@ func (ts *TestSandbox) Grants() []string {
 }
 
 func (ts *TestSandbox) getAllGrants() ([]string, error) {
-	grants := []string{"SELECT", "INSERT", "DELETE", "UPDATE", "CREATE", "ALTER", "DROP",
+	grants := []string{
+		"SELECT", "INSERT", "DELETE", "UPDATE", "CREATE", "ALTER", "DROP",
 		"CREATE TEMPORARY TABLES", "ALTER ROUTINE", "CREATE ROUTINE", "CREATE TABLESPACE",
 		"CREATE USER", "CREATE VIEW", "EVENT", "EXECUTE", "FILE",
 		"GRANT OPTION", "INDEX", "LOCK TABLES", "PROCESS",
@@ -143,7 +160,8 @@ func (ts *TestSandbox) getAllGrants() ([]string, error) {
 
 	// Permissible Dynamic Privileges for GRANT and REVOKE (MySQL 8.0+)
 	// https://dev.mysql.com/doc/refman/8.0/en/grant.html#grant-privileges
-	mysql8Grants := []string{"BINLOG_ADMIN", "CONNECTION_ADMIN",
+	mysql8Grants := []string{
+		"BINLOG_ADMIN", "CONNECTION_ADMIN",
 		"ENCRYPTION_KEY_ADMIN",
 		"GROUP_REPLICATION_ADMIN", "REPLICATION_SLAVE_ADMIN", "ROLE_ADMIN",
 		"SET_USER_ID", "SYSTEM_VARIABLES_ADMIN",
@@ -217,15 +235,15 @@ func startSandbox(baseDir, sandboxDir, sandboxName string, port int) error {
 	if err := os.MkdirAll(sandboxDir, os.ModePerm); err != nil {
 		return errors.Wrapf(err, "cannot create temporary directory for the sandbox: %s", sandboxDir)
 	}
-	_, err = sandbox.CreateChildSandbox(sb)
-	return err
+	sandbox.CreateSingleSandbox(sb)
+	return nil
 }
 
 func stopSandbox(args []interface{}) error {
 	sandboxDir := args[0].(string)
 	sandboxName := args[1].(string)
-	_, err := sandbox.RemoveSandbox(sandboxDir, sandboxName, false)
-	return err
+	sandbox.RemoveSandbox(sandboxDir, sandboxName, false)
+	return nil
 }
 
 func getMySQLVersion(baseDir string) (*version.Version, error) {

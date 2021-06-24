@@ -6,12 +6,13 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/Percona-Lab/minimum_permissions/internal/tester"
-	"github.com/Percona-Lab/minimum_permissions/internal/utils"
 	slo "github.com/percona/go-mysql/log"
 	"github.com/percona/go-mysql/log/slow"
 	"github.com/percona/go-mysql/query"
 	"github.com/pkg/errors"
+
+	"github.com/Percona-Lab/minimum_permissions/internal/tester"
+	"github.com/Percona-Lab/minimum_permissions/internal/utils"
 )
 
 // ReadSlowLog read and parse a slow log file and returns a list of testing cases
