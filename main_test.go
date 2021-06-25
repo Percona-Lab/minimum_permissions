@@ -10,6 +10,7 @@ import (
 	mysql "github.com/go-sql-driver/mysql"
 	"github.com/rs/zerolog/log"
 
+	"github.com/Percona-Lab/minimum_permissions/internal/testsandbox"
 	tu "github.com/Percona-Lab/minimum_permissions/internal/testutils"
 )
 
@@ -18,7 +19,7 @@ var dsn, templateDSN string
 func TestMain(m *testing.M) {
 	envDSN := os.Getenv("TEST_DSN")
 	if envDSN == "" {
-		log.Fatal().Msg("TEST_DSN env var is empty")
+		envDSN = "root:pass@tcp(127.0.0.1:3306)/"
 	}
 
 	cfg, err := mysql.ParseDSN(envDSN)
@@ -62,23 +63,27 @@ func TestCombinationsIndex(t *testing.T) {
 	tu.Equals(t, cmb, want)
 }
 
-// func TestGetAllGrants57(t *testing.T) {
-// 	tu.SkipIfGreatherThan(t, "5.7.99")
-// 	db := tu.GetMySQLConnection(t)
-//
-// 	want := []string{
-// 		"SELECT", "INSERT", "DELETE", "UPDATE", "ALTER", "ALTER ROUTINE", "CREATE",
-// 		"CREATE ROUTINE", "CREATE TABLESPACE", "CREATE TEMPORARY TABLES", "CREATE USER",
-// 		"CREATE VIEW", "DROP", "EVENT", "EXECUTE", "FILE", "GRANT OPTION", "INDEX",
-// 		"LOCK TABLES", "PROCESS", "REFERENCES", "RELOAD", "REPLICATION CLIENT",
-// 		"REPLICATION SLAVE", "SHOW DATABASES", "SHOW VIEW", "SHUTDOWN ", "SUPER", "TRIGGER", "USAGE",
-// 	}
-//
-// 	userGrants, err := sandbox.Grants()
-// 	tu.IsNil(t, err)
-// 	tu.Equals(t, userGrants, want)
-// }
-//
+func TestGetAllGrants57(t *testing.T) {
+	tu.SkipIfGreatherThan(t, "5.7.99")
+
+	want := []string{
+		"SELECT", "INSERT", "DELETE", "UPDATE", "ALTER", "ALTER ROUTINE", "CREATE",
+		"CREATE ROUTINE", "CREATE TABLESPACE", "CREATE TEMPORARY TABLES", "CREATE USER",
+		"CREATE VIEW", "DROP", "EVENT", "EXECUTE", "FILE", "GRANT OPTION", "INDEX",
+		"LOCK TABLES", "PROCESS", "REFERENCES", "RELOAD", "REPLICATION CLIENT",
+		"REPLICATION SLAVE", "SHOW DATABASES", "SHOW VIEW", "SHUTDOWN ", "SUPER", "TRIGGER", "USAGE",
+	}
+
+	sandbox, err := testsandbox.New(opts.mysqlBaseDir)
+	if err != nil {
+		log.Fatal().Msgf("Cannot start the MySQL sandbox: %s", err)
+	}
+
+	userGrants, err := sandbox.Grants()
+	tu.IsNil(t, err)
+	tu.Equals(t, userGrants, want)
+}
+
 // func TestGetAllGrants80(t *testing.T) {
 // 	tu.SkipIfLessThan(t, "8.0")
 // 	db := tu.GetMySQLConnection(t)
