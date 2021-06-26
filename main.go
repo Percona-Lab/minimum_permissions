@@ -139,7 +139,7 @@ func main() {
 		fmt.Println("CTRL+C detected. Finishing ...")
 	}()
 
-	results, invalidQueries := test(testCases, sandbox.DB(), templateDSN, grants, opts.maxDepth, stopChan, opts.quiet)
+	results, invalidQueries := test(testCases, sandbox.DB(), sandbox.TemplateDSN(), grants, opts.maxDepth, stopChan, opts.quiet)
 
 	if terminal.IsTerminal(int(os.Stdout.Fd())) && !opts.quiet && !opts.debug {
 		s.Stop()

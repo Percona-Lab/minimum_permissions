@@ -132,7 +132,8 @@ func (ts *TestSandbox) Grants() []string {
 }
 
 func (ts *TestSandbox) getAllGrants() ([]string, error) {
-	grants := []string{"SELECT", "INSERT", "DELETE", "UPDATE", "CREATE", "ALTER", "DROP",
+	grants := []string{
+		"SELECT", "INSERT", "DELETE", "UPDATE", "CREATE", "ALTER", "DROP",
 		"CREATE TEMPORARY TABLES", "ALTER ROUTINE", "CREATE ROUTINE", "CREATE TABLESPACE",
 		"CREATE USER", "CREATE VIEW", "EVENT", "EXECUTE", "FILE",
 		"GRANT OPTION", "INDEX", "LOCK TABLES", "PROCESS",
@@ -143,7 +144,8 @@ func (ts *TestSandbox) getAllGrants() ([]string, error) {
 
 	// Permissible Dynamic Privileges for GRANT and REVOKE (MySQL 8.0+)
 	// https://dev.mysql.com/doc/refman/8.0/en/grant.html#grant-privileges
-	mysql8Grants := []string{"BINLOG_ADMIN", "CONNECTION_ADMIN",
+	mysql8Grants := []string{
+		"BINLOG_ADMIN", "CONNECTION_ADMIN",
 		"ENCRYPTION_KEY_ADMIN",
 		"GROUP_REPLICATION_ADMIN", "REPLICATION_SLAVE_ADMIN", "ROLE_ADMIN",
 		"SET_USER_ID", "SYSTEM_VARIABLES_ADMIN",
@@ -266,8 +268,8 @@ func getDBConnection(host, user, password string, port int) (*sql.DB, error) {
 	return db, nil
 }
 
-func getTemplateDSN(host string, port int, database string) string {
-	protocol, hostPort := getProtocolAndHost(host, port)
+func (ts *TestSandbox) TemplateDSN() string {
+	protocol, hostPort := getProtocolAndHost(ts.host, ts.port)
 	return fmt.Sprintf("%%s:%%s@%s(%s)/", protocol, hostPort)
 }
 
