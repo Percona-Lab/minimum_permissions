@@ -34,8 +34,8 @@ type TestingCase struct {
 
 func NewTestConnection(conn *sql.DB, dsnTemplate string, grants []string) (*TestConnection, error) {
 	tc := &TestConnection{
-		testUser:    "someuser", //utils.RandomString(12),
-		testPass:    "somepass", //utils.RandomString(12),
+		testUser:    "someuser", // utils.RandomString(12),
+		testPass:    "somepass", // utils.RandomString(12),
 		mainConn:    conn,
 		dsnTemplate: dsnTemplate,
 		grants:      grants,
@@ -90,7 +90,7 @@ func (tc *TestConnection) TestQueries(testCases []*TestingCase, stopChan chan bo
 			continue
 		}
 		wg.Add(1)
-		//go tc.testQuery(testCase, &wg)
+		// go tc.testQuery(testCase, &wg)
 		tc.testQuery(testCase, &wg)
 	}
 	wg.Wait()
@@ -125,7 +125,7 @@ func (tc *TestConnection) testQuery(testCase *TestingCase, wg *sync.WaitGroup) {
 
 	if err == nil {
 		testCase.MinimumGrants = tc.grants
-		//tx.Rollback()
+		// tx.Rollback()
 	} else {
 		testCase.Error = err
 		testCase.LastTestedGrants = tc.grants

@@ -4,7 +4,7 @@ PORT=3306
 
 wait_for_mysql() {
     echo "Waiting for MySQL server to become ready"
-    cmd="mysql -h 127.1 -P 3306 -u root -ss -e 'SHOW STATUS' &> /dev/null"
+    cmd="mysql -h 127.1 -P 3306 -u root -ppass --ssl-mode=disabled -ss -e 'SHOW STATUS' &> /dev/null"
     eval $cmd
     local status=$?
     
@@ -19,7 +19,7 @@ wait_for_mysql() {
 for version in 5.6 5.7 8.0.3; do
     CONTAINER_NAME="test-mysql-${version}"
     echo "Starting container ${CONTAINER_NAME}"
-    docker run --name $CONTAINER_NAME -e MYSQL_ALLOW_EMPTY_PASSWORD=true -d -p ${PORT}:3306 mysql:${version}
+    docker run --name $CONTAINER_NAME -e MYSQL_ROOT_PASSWORD=pass -d -p ${PORT}:3306 mysql:${version}
     wait_for_mysql
 
     go test -v
