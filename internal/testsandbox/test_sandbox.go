@@ -284,8 +284,8 @@ func getDBConnection(host, user, password string, port int) (*sql.DB, error) {
 	return db, nil
 }
 
-func getTemplateDSN(host string, port int, database string) string {
-	protocol, hostPort := getProtocolAndHost(host, port)
+func (ts *TestSandbox) TemplateDSN() string {
+	protocol, hostPort := getProtocolAndHost(ts.host, ts.port)
 	return fmt.Sprintf("%%s:%%s@%s(%s)/", protocol, hostPort)
 }
 
