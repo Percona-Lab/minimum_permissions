@@ -12,7 +12,6 @@ require (
 	github.com/fatih/color v1.7.0 // indirect
 	github.com/go-sql-driver/mysql v1.4.0
 	github.com/hashicorp/go-version v1.0.0
-	github.com/kr/pretty v0.1.0
 	github.com/mattn/go-colorable v0.0.9 // indirect
 	github.com/mattn/go-isatty v0.0.4 // indirect
 	github.com/percona/go-mysql v0.0.0-20180919090124-fcc026629575
@@ -20,6 +19,6 @@ require (
 	github.com/rs/zerolog v1.10.2
 	github.com/stretchr/testify v1.7.0 // indirect
 	golang.org/x/crypto v0.0.0-20181106171534-e4dc69e5b2fd
-	golang.org/x/sys v0.0.0-20181107165924-66b7b1311ac8 // indirect
+	golang.org/x/sys v0.1.0 // indirect
 	google.golang.org/appengine v1.3.0 // indirect
 )
